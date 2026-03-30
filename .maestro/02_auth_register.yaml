@@ -1,0 +1,21 @@
+appId: host.exp.Exponent
+---
+# Test: Registration Flow
+- launchApp
+
+# Navigate to register
+- tapOn: "Sign Up"
+
+# Fill form
+- tapOn: "Your full name"
+- inputText: "Test Tenant"
+- tapOn: "your@email.com"
+- inputText: "newuser@test.com"
+- tapOn: "At least 6 characters"
+- inputText: "123456"
+
+# Select role (Tenant is default)
+- assertVisible: "Tenant"
+
+# Submit
+- tapOn: "Create Account"

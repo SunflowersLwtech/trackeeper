@@ -1,0 +1,20 @@
+appId: host.exp.Exponent
+---
+# Test: Tenant Login Flow
+- launchApp
+
+# Should see login screen
+- assertVisible: "TracKeeper"
+- assertVisible: "Sign In"
+
+# Enter credentials
+- tapOn: "Enter your email"
+- inputText: "tenant@test.com"
+- tapOn: "Enter your password"
+- inputText: "123456"
+
+# Submit
+- tapOn: "Sign In"
+
+# Should navigate to tenant dashboard
+- assertVisible: "My Requests"

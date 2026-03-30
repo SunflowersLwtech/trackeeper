@@ -1,0 +1,32 @@
+appId: host.exp.Exponent
+---
+# Test: Create Maintenance Request (as Tenant)
+- launchApp
+
+# Login as tenant
+- tapOn: "Enter your email"
+- inputText: "tenant@test.com"
+- tapOn: "Enter your password"
+- inputText: "123456"
+- tapOn: "Sign In"
+- assertVisible: "My Requests"
+
+# Navigate to create
+- tapOn: "New Request"
+
+# Fill form
+- tapOn: "Brief description of the issue"
+- inputText: "Leaking pipe in kitchen"
+- tapOn: "Plumbing"
+- tapOn: "Provide detailed information"
+- inputText: "Water is dripping from the sink pipe continuously"
+
+# Submit
+- tapOn: "Submit Request"
+
+# Should see success
+- assertVisible: "Success"
+- tapOn: "OK"
+
+# Should see the request in list
+- assertVisible: "Leaking pipe in kitchen"

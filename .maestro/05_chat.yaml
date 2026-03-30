@@ -1,0 +1,25 @@
+appId: host.exp.Exponent
+---
+# Test: Chat within ticket (as Manager)
+- launchApp
+
+# Login as manager
+- tapOn: "Enter your email"
+- inputText: "manager@test.com"
+- tapOn: "Enter your password"
+- inputText: "123456"
+- tapOn: "Sign In"
+- assertVisible: "Dashboard"
+
+# Open a ticket
+- tapOn: "Leaking pipe in kitchen"
+- assertVisible: "Messages"
+
+# Send a message
+- tapOn: "Type a message..."
+- inputText: "I will send a plumber tomorrow"
+- tapOn:
+    id: "send-button"
+
+# Message should appear
+- assertVisible: "I will send a plumber tomorrow"

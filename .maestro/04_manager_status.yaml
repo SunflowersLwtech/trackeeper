@@ -1,0 +1,25 @@
+appId: host.exp.Exponent
+---
+# Test: Manager views and updates ticket status
+- launchApp
+
+# Login as manager
+- tapOn: "Enter your email"
+- inputText: "manager@test.com"
+- tapOn: "Enter your password"
+- inputText: "123456"
+- tapOn: "Sign In"
+- assertVisible: "Dashboard"
+
+# Tap on a ticket
+- tapOn: "Leaking pipe in kitchen"
+
+# Should see detail with status button
+- assertVisible: "Manage Request"
+- assertVisible: "Mark as Assigned"
+
+# Update status
+- tapOn: "Mark as Assigned"
+
+# Should now show next status
+- assertVisible: "Mark as In Progress"
