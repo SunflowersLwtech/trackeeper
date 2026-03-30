@@ -1,7 +1,7 @@
 import "../global.css";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
-import { Stack } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
@@ -19,6 +19,8 @@ function LoadingScreen() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
 
   React.useEffect(() => {
     if (!loading) {
@@ -26,21 +28,25 @@ function RootNavigator() {
     }
   }, [loading]);
 
+  React.useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (!user && !inAuthGroup) {
+      router.replace("/(auth)/login");
+    } else if (user && inAuthGroup) {
+      if (user.role === "manager") {
+        router.replace("/(manager)");
+      } else {
+        router.replace("/(tenant)");
+      }
+    }
+  }, [user, loading, segments]);
+
   if (loading) return <LoadingScreen />;
 
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!user}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!!user && user.role === "tenant"}>
-        <Stack.Screen name="(tenant)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!!user && user.role === "manager"}>
-        <Stack.Screen name="(manager)" />
-      </Stack.Protected>
-    </Stack>
-  );
+  return <Slot />;
 }
 
 export default function RootLayout() {
