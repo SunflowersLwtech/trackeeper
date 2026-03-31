@@ -1,7 +1,9 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { MaintenanceRequest } from "@/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 interface RequestCardProps {
   request: MaintenanceRequest;
@@ -39,14 +41,26 @@ export function RequestCard({ request, onPress }: RequestCardProps) {
         {request.description}
       </Text>
 
-      <View className="flex-row items-center justify-between">
-        <View
-          className="px-2 py-1 rounded-md"
-          style={{ backgroundColor: "#f3f4f6" }}
-        >
-          <Text className="text-xs" style={{ color: "#374151" }}>
-            {request.category}
+      {request.assignedToName && (
+        <View className="flex-row items-center mb-2">
+          <Ionicons name="person" size={12} color="#6b7280" />
+          <Text className="text-xs ml-1" style={{ color: "#6b7280" }}>
+            Assigned to {request.assignedToName}
           </Text>
+        </View>
+      )}
+
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <View
+            className="px-2 py-1 rounded-md mr-2"
+            style={{ backgroundColor: "#f3f4f6" }}
+          >
+            <Text className="text-xs" style={{ color: "#374151" }}>
+              {request.category}
+            </Text>
+          </View>
+          {request.priority && <PriorityBadge priority={request.priority} />}
         </View>
         {timeAgo ? (
           <Text className="text-xs" style={{ color: "#9ca3af" }}>

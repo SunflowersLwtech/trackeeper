@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function TenantLayout() {
   const { user } = useAuth();
   if (!user) return <Redirect href="/(auth)/login" />;
-  if (user.role !== "tenant") return <Redirect href="/(manager)" />;
+  if (user.role === "manager") return <Redirect href="/(manager)" />;
+  if (user.role === "maintainer") return <Redirect href="/(maintainer)" />;
 
   return (
     <Tabs
@@ -46,6 +47,7 @@ export default function TenantLayout() {
         }}
       />
       <Tabs.Screen name="[id]" options={{ href: null }} />
+      <Tabs.Screen name="edit/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,6 +1,16 @@
-import { RequestCategory } from "@/types";
+import { RequestCategory, RequestPriority, UserRole } from "@/types";
 
 const VALID_CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
+const VALID_PRIORITIES: RequestPriority[] = ["low", "medium", "high"];
+
+const MANAGER_INVITE_CODE = "TRACKEEPER2026";
+
+export function validateInviteCode(code: string, role: UserRole): string | null {
+  if (role === "tenant") return null;
+  if (!code.trim()) return "Invite code is required for this role";
+  if (code.trim() !== MANAGER_INVITE_CODE) return "Invalid invite code";
+  return null;
+}
 
 export interface ValidationError {
   field: string;
@@ -11,6 +21,7 @@ export function validateRequestForm(data: {
   title?: string;
   description?: string;
   category?: string;
+  priority?: string;
 }): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -28,6 +39,10 @@ export function validateRequestForm(data: {
 
   if (!data.category || !VALID_CATEGORIES.includes(data.category as RequestCategory)) {
     errors.push({ field: "category", message: "Please select a valid category" });
+  }
+
+  if (data.priority && !VALID_PRIORITIES.includes(data.priority as RequestPriority)) {
+    errors.push({ field: "priority", message: "Please select a valid priority" });
   }
 
   return errors;

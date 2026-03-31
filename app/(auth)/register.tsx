@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +12,8 @@ import {
 import { router } from "expo-router";
 import { signUp } from "@/services/auth";
 import { UserRole } from "@/types";
-import { validateEmail, validatePassword, validateName } from "@/utils/validation";
+import { validateEmail, validatePassword, validateName, validateInviteCode } from "@/utils/validation";
+import { showError } from "@/utils/toast";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
@@ -21,15 +21,19 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("tenant");
   const [unitNumber, setUnitNumber] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     const nameError = validateName(name);
-    if (nameError) { Alert.alert("Error", nameError); return; }
+    if (nameError) { showError("Error", nameError); return; }
     const emailError = validateEmail(email);
-    if (emailError) { Alert.alert("Error", emailError); return; }
+    if (emailError) { showError("Error", emailError); return; }
     const passwordError = validatePassword(password);
-    if (passwordError) { Alert.alert("Error", passwordError); return; }
+    if (passwordError) { showError("Error", passwordError); return; }
+
+    const inviteError = validateInviteCode(inviteCode, role);
+    if (inviteError) { showError("Error", inviteError); return; }
 
     setLoading(true);
     try {
@@ -37,7 +41,7 @@ export default function RegisterScreen() {
       // Navigation handled by AuthContext + Stack.Protected
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Registration failed";
-      Alert.alert("Registration Failed", message);
+      showError("Registration Failed", message);
     } finally {
       setLoading(false);
     }
@@ -128,8 +132,35 @@ export default function RegisterScreen() {
                   Manager
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 py-3 items-center"
+                style={{ backgroundColor: role === "maintainer" ? "#3b82f6" : "#fff" }}
+                onPress={() => setRole("maintainer")}
+              >
+                <Text style={{ color: role === "maintainer" ? "#fff" : "#374151", fontWeight: "600" }}>
+                  Maintainer
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
+
+          {/* Invite Code (Manager/Maintainer only) */}
+          {(role === "manager" || role === "maintainer") && (
+            <View className="mb-4">
+              <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>
+                Invite Code
+              </Text>
+              <TextInput
+                className="border rounded-xl px-4 py-3 text-base"
+                style={{ borderColor: "#d1d5db", color: "#111827" }}
+                placeholder="Enter invite code"
+                placeholderTextColor="#9ca3af"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                autoCapitalize="characters"
+              />
+            </View>
+          )}
 
           {/* Unit Number (Tenant only) */}
           {role === "tenant" && (

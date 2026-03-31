@@ -15,16 +15,24 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { createRequest } from "@/services/requests";
-import { RequestCategory } from "@/types";
+import { RequestCategory, RequestPriority } from "@/types";
 import { validateRequestForm } from "@/utils/validation";
+import { showSuccess, showError } from "@/utils/toast";
+import { getPriorityColor } from "@/utils/priority";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
+const PRIORITIES: Array<{ value: RequestPriority; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
 
 export default function CreateRequestScreen() {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<RequestCategory | "">("");
+  const [priority, setPriority] = useState<RequestPriority>("medium");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -55,9 +63,9 @@ export default function CreateRequestScreen() {
   };
 
   const handleSubmit = async () => {
-    const errors = validateRequestForm({ title, description, category });
+    const errors = validateRequestForm({ title, description, category, priority });
     if (errors.length > 0) {
-      Alert.alert("Validation Error", errors[0].message);
+      showError("Validation Error", errors[0].message);
       return;
     }
     if (!user) return;
@@ -68,16 +76,16 @@ export default function CreateRequestScreen() {
         title: title.trim(),
         description: description.trim(),
         category: category as RequestCategory,
+        priority,
         tenantId: user.uid,
         tenantName: user.name,
         imageUri: imageUri ?? undefined,
       });
-      Alert.alert("Success", "Your request has been submitted!", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      showSuccess("Your request has been submitted!");
+      router.back();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to submit request";
-      Alert.alert("Error", message);
+      showError("Error", message);
     } finally {
       setLoading(false);
     }
@@ -127,6 +135,39 @@ export default function CreateRequestScreen() {
           </View>
         </View>
 
+        {/* Priority */}
+        <View className="mb-4">
+          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Priority</Text>
+          <View className="flex-row">
+            {PRIORITIES.map((p) => {
+              const color = getPriorityColor(p.value);
+              const selected = priority === p.value;
+              return (
+                <TouchableOpacity
+                  key={p.value}
+                  className="mr-2 flex-row items-center px-4 py-2 rounded-xl border"
+                  style={{
+                    borderColor: selected ? color : "#d1d5db",
+                    backgroundColor: selected ? color + "15" : "#fff",
+                  }}
+                  onPress={() => setPriority(p.value)}
+                >
+                  <View
+                    className="w-2.5 h-2.5 rounded-full mr-2"
+                    style={{ backgroundColor: color }}
+                  />
+                  <Text
+                    className="text-sm"
+                    style={{ color: selected ? color : "#374151" }}
+                  >
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Description */}
         <View className="mb-4">
           <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Description</Text>
@@ -173,14 +214,14 @@ export default function CreateRequestScreen() {
               style={{ borderColor: "#d1d5db" }}
               onPress={takePhoto}
             >
-              <Text style={{ color: "#374151" }}>📷 Camera</Text>
+              <Text style={{ color: "#374151" }}>Camera</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 border rounded-xl py-3 items-center"
               style={{ borderColor: "#d1d5db" }}
               onPress={pickImage}
             >
-              <Text style={{ color: "#374151" }}>🖼 Gallery</Text>
+              <Text style={{ color: "#374151" }}>Gallery</Text>
             </TouchableOpacity>
           </View>
         </View>

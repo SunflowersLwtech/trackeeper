@@ -8,6 +8,8 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  arrayUnion,
+  Timestamp,
   Unsubscribe,
 } from "firebase/firestore";
 import {
@@ -16,8 +18,8 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { db, storage } from "@/config/firebase";
-import { MaintenanceRequest, RequestStatus, RequestCategory } from "@/types";
-import { canTransition } from "@/utils/status";
+import { MaintenanceRequest, RequestStatus, RequestCategory, RequestPriority, UserRole } from "@/types";
+import { canTransition, canCancel, canTransitionWithRole } from "@/utils/status";
 
 const REQUESTS_COLLECTION = "requests";
 
@@ -25,6 +27,7 @@ export interface CreateRequestInput {
   title: string;
   description: string;
   category: RequestCategory;
+  priority?: RequestPriority;
   tenantId: string;
   tenantName: string;
   imageUri?: string;
@@ -54,10 +57,12 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     title: input.title,
     description: input.description,
     category: input.category,
+    priority: input.priority ?? "medium",
     status: "submitted" as RequestStatus,
     tenantId: input.tenantId,
     tenantName: input.tenantName,
     imageUrl: null,
+    statusHistory: [],
     createdAt: serverTimestamp(),
     clientTimestamp: Date.now(),
   });
@@ -74,12 +79,161 @@ export async function updateRequestStatus(
   requestId: string,
   currentStatus: RequestStatus,
   newStatus: RequestStatus,
+  userId: string,
+  userName: string,
+  role: UserRole,
 ): Promise<void> {
-  if (!canTransition(currentStatus, newStatus)) {
-    throw new Error(`Invalid transition: ${currentStatus} → ${newStatus}`);
+  if (!canTransitionWithRole(currentStatus, newStatus, role)) {
+    throw new Error(`Invalid transition: ${currentStatus} → ${newStatus} for role ${role}`);
   }
   await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
     status: newStatus,
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: newStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+}
+
+export async function updateRequest(
+  requestId: string,
+  fields: Partial<Pick<MaintenanceRequest, "title" | "description" | "category" | "priority">>,
+): Promise<void> {
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), fields);
+}
+
+export async function rateRequest(
+  requestId: string,
+  rating: number,
+  comment?: string,
+): Promise<void> {
+  if (rating < 1 || rating > 5) {
+    throw new Error("Rating must be between 1 and 5");
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    rating,
+    ratingComment: comment ?? null,
+  });
+}
+
+export async function cancelRequest(
+  requestId: string,
+  currentStatus: RequestStatus,
+  userId: string,
+  userName: string,
+): Promise<void> {
+  if (!canCancel(currentStatus)) {
+    throw new Error(`Cannot cancel a request with status: ${currentStatus}`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: "cancelled" as RequestStatus,
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: "cancelled" as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+}
+
+export async function assignRequest(
+  requestId: string,
+  currentStatus: RequestStatus,
+  assigneeId: string,
+  assigneeName: string,
+  assigneePhone: string,
+  estimatedArrival: string,
+  userId: string,
+  userName: string,
+): Promise<void> {
+  if (!canTransitionWithRole(currentStatus, "assigned", "manager")) {
+    throw new Error(`Invalid transition: ${currentStatus} → assigned for role manager`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: "assigned" as RequestStatus,
+    assignedTo: assigneeId,
+    assignedToName: assigneeName,
+    assignedToPhone: assigneePhone,
+    estimatedArrival,
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: "assigned" as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+}
+
+export async function putOnHold(
+  requestId: string,
+  currentStatus: RequestStatus,
+  userId: string,
+  userName: string,
+  role: UserRole,
+  note?: string,
+): Promise<void> {
+  if (!canTransitionWithRole(currentStatus, "on_hold", role)) {
+    throw new Error(`Invalid transition: ${currentStatus} → on_hold for role ${role}`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: "on_hold" as RequestStatus,
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: "on_hold" as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+      ...(note ? { note } : {}),
+    }),
+  });
+}
+
+export async function resumeRequest(
+  requestId: string,
+  resumeTo: "assigned" | "in_progress",
+  userId: string,
+  userName: string,
+  role: UserRole,
+): Promise<void> {
+  if (!canTransitionWithRole("on_hold", resumeTo, role)) {
+    throw new Error(`Invalid transition: on_hold → ${resumeTo} for role ${role}`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: resumeTo as RequestStatus,
+    statusHistory: arrayUnion({
+      from: "on_hold" as RequestStatus,
+      to: resumeTo as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+}
+
+export async function completeRequest(
+  requestId: string,
+  currentStatus: RequestStatus,
+  userId: string,
+  userName: string,
+): Promise<void> {
+  if (!canTransitionWithRole(currentStatus, "completed", "maintainer")) {
+    throw new Error(`Invalid transition: ${currentStatus} → completed for role maintainer`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: "completed" as RequestStatus,
+    resolvedAt: serverTimestamp(),
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: "completed" as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
   });
 }
 
@@ -91,6 +245,30 @@ export function subscribeToTenantRequests(
   const q = query(
     collection(db, REQUESTS_COLLECTION),
     where("tenantId", "==", tenantId),
+    orderBy("createdAt", "desc"),
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const requests = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as MaintenanceRequest[];
+      callback(requests);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+export function subscribeToMaintainerRequests(
+  maintainerId: string,
+  callback: (requests: MaintenanceRequest[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const q = query(
+    collection(db, REQUESTS_COLLECTION),
+    where("assignedTo", "==", maintainerId),
     orderBy("createdAt", "desc"),
   );
 

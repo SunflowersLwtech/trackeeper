@@ -1,13 +1,26 @@
-import React from "react";
-import { View, Text, FlatList, ActivityIndicator } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, Text, FlatList, ActivityIndicator, RefreshControl, TextInput } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenantRequests } from "@/hooks/useRequests";
 import { RequestCard } from "@/components/request/RequestCard";
+import { TouchableOpacity } from "react-native";
 
 export default function TenantHomeScreen() {
   const { user } = useAuth();
-  const { requests, loading } = useTenantRequests(user?.uid);
+  const { requests, loading, refreshing, refresh } = useTenantRequests(user?.uid);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return requests;
+    const q = search.toLowerCase();
+    return requests.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q),
+    );
+  }, [requests, search]);
 
   if (loading) {
     return (
@@ -19,10 +32,38 @@ export default function TenantHomeScreen() {
 
   return (
     <View className="flex-1 bg-white">
+      {/* Search */}
+      {requests.length > 0 && (
+        <View className="px-4 pt-3 pb-1">
+          <View
+            className="flex-row items-center border rounded-xl px-3 py-2"
+            style={{ borderColor: "#d1d5db", backgroundColor: "#f9fafb" }}
+          >
+            <Ionicons name="search-outline" size={18} color="#9ca3af" />
+            <TextInput
+              className="flex-1 ml-2 text-sm"
+              style={{ color: "#111827" }}
+              placeholder="Search my requests..."
+              placeholderTextColor="#9ca3af"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={18} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+
       <FlatList
-        data={requests}
+        data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
+        }
         renderItem={({ item }) => (
           <RequestCard
             request={item}
@@ -32,11 +73,13 @@ export default function TenantHomeScreen() {
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">
             <Text className="text-lg font-medium" style={{ color: "#9ca3af" }}>
-              No requests yet
+              {search ? "No matching requests" : "No requests yet"}
             </Text>
-            <Text className="text-sm mt-1" style={{ color: "#d1d5db" }}>
-              Tap &quot;New Request&quot; to get started
-            </Text>
+            {!search && (
+              <Text className="text-sm mt-1" style={{ color: "#d1d5db" }}>
+                Tap &quot;New Request&quot; to get started
+              </Text>
+            )}
           </View>
         }
       />

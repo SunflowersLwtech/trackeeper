@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import {
 import { router } from "expo-router";
 import { signIn } from "@/services/auth";
 import { validateEmail, validatePassword } from "@/utils/validation";
+import { showError } from "@/utils/toast";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -22,12 +22,12 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const emailError = validateEmail(email);
     if (emailError) {
-      Alert.alert("Error", emailError);
+      showError("Error", emailError);
       return;
     }
     const passwordError = validatePassword(password);
     if (passwordError) {
-      Alert.alert("Error", passwordError);
+      showError("Error", passwordError);
       return;
     }
 
@@ -37,7 +37,7 @@ export default function LoginScreen() {
       // Navigation handled by AuthContext + Stack.Protected
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Login failed";
-      Alert.alert("Login Failed", message);
+      showError("Login Failed", message);
     } finally {
       setLoading(false);
     }

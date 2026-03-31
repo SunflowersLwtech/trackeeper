@@ -3,6 +3,7 @@ import {
   validateEmail,
   validatePassword,
   validateName,
+  validateInviteCode,
 } from "@/utils/validation";
 
 describe("validation utils", () => {
@@ -62,6 +63,61 @@ describe("validation utils", () => {
       const errors = validateRequestForm({});
       expect(errors.length).toBeGreaterThanOrEqual(3);
     });
+
+    it("rejects short description", () => {
+      const errors = validateRequestForm({
+        title: "Valid title here",
+        description: "Short",
+        category: "Plumbing",
+      });
+      expect(errors).toContainEqual({
+        field: "description",
+        message: "Description must be at least 10 characters",
+      });
+    });
+
+    it("rejects missing category", () => {
+      const errors = validateRequestForm({
+        title: "Valid title here",
+        description: "Valid description text",
+      });
+      expect(errors).toContainEqual({
+        field: "category",
+        message: "Please select a valid category",
+      });
+    });
+
+    it("accepts valid priority", () => {
+      const errors = validateRequestForm({
+        title: "Valid title here",
+        description: "Valid description text",
+        category: "Plumbing",
+        priority: "high",
+      });
+      expect(errors).toEqual([]);
+    });
+
+    it("rejects invalid priority", () => {
+      const errors = validateRequestForm({
+        title: "Valid title here",
+        description: "Valid description text",
+        category: "Plumbing",
+        priority: "urgent",
+      });
+      expect(errors).toContainEqual({
+        field: "priority",
+        message: "Please select a valid priority",
+      });
+    });
+
+    it("allows missing priority (optional)", () => {
+      const errors = validateRequestForm({
+        title: "Valid title here",
+        description: "Valid description text",
+        category: "Plumbing",
+      });
+      expect(errors).toEqual([]);
+    });
   });
 
   describe("validateEmail", () => {
@@ -103,6 +159,36 @@ describe("validation utils", () => {
 
     it("rejects single character name", () => {
       expect(validateName("J")).toBe("Name must be at least 2 characters");
+    });
+  });
+
+  describe("validateInviteCode", () => {
+    it("returns null for tenant (no code needed)", () => {
+      expect(validateInviteCode("", "tenant")).toBeNull();
+    });
+
+    it("returns null for valid code with manager role", () => {
+      expect(validateInviteCode("TRACKEEPER2026", "manager")).toBeNull();
+    });
+
+    it("returns null for valid code with maintainer role", () => {
+      expect(validateInviteCode("TRACKEEPER2026", "maintainer")).toBeNull();
+    });
+
+    it("rejects empty code for manager", () => {
+      expect(validateInviteCode("", "manager")).toBe("Invite code is required for this role");
+    });
+
+    it("rejects empty code for maintainer", () => {
+      expect(validateInviteCode("", "maintainer")).toBe("Invite code is required for this role");
+    });
+
+    it("rejects wrong code for manager", () => {
+      expect(validateInviteCode("WRONG", "manager")).toBe("Invalid invite code");
+    });
+
+    it("rejects wrong code for maintainer", () => {
+      expect(validateInviteCode("WRONG", "maintainer")).toBe("Invalid invite code");
     });
   });
 });

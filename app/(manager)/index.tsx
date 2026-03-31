@@ -1,25 +1,58 @@
-import React, { useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { useAllRequests } from "@/hooks/useRequests";
 import { RequestCard } from "@/components/request/RequestCard";
-import { RequestStatus } from "@/types";
-
-const FILTERS: Array<{ label: string; value: RequestStatus | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Submitted", value: "submitted" },
-  { label: "Assigned", value: "assigned" },
-  { label: "In Progress", value: "in_progress" },
-  { label: "Completed", value: "completed" },
-];
+import { StatsBar } from "@/components/request/StatsBar";
+import { FilterBar, SortOption } from "@/components/request/FilterBar";
+import { RequestStatus, RequestCategory } from "@/types";
+import { getPriorityWeight } from "@/utils/priority";
 
 export default function ManagerDashboardScreen() {
-  const { requests, loading } = useAllRequests();
-  const [filter, setFilter] = useState<RequestStatus | "all">("all");
+  const { requests, loading, refreshing, refresh } = useAllRequests();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<RequestCategory | "all">("all");
+  const [sort, setSort] = useState<SortOption>("newest");
 
-  const filtered = filter === "all"
-    ? requests
-    : requests.filter((r) => r.status === filter);
+  const filtered = useMemo(() => {
+    let result = requests;
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q) ||
+          r.tenantName.toLowerCase().includes(q),
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((r) => r.status === statusFilter);
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      result = result.filter((r) => r.category === categoryFilter);
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      if (sort === "oldest") {
+        return (a.clientTimestamp ?? 0) - (b.clientTimestamp ?? 0);
+      }
+      if (sort === "priority") {
+        return getPriorityWeight(a.priority ?? "medium") - getPriorityWeight(b.priority ?? "medium");
+      }
+      // newest (default)
+      return (b.clientTimestamp ?? 0) - (a.clientTimestamp ?? 0);
+    });
+
+    return result;
+  }, [requests, search, statusFilter, categoryFilter, sort]);
 
   if (loading) {
     return (
@@ -31,37 +64,26 @@ export default function ManagerDashboardScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      {/* Filter chips */}
-      <FlatList
-        horizontal
-        data={FILTERS}
-        keyExtractor={(item) => item.value}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            className="mr-2 px-4 py-2 rounded-full border"
-            style={{
-              borderColor: filter === item.value ? "#3b82f6" : "#d1d5db",
-              backgroundColor: filter === item.value ? "#eff6ff" : "#fff",
-            }}
-            onPress={() => setFilter(item.value)}
-          >
-            <Text
-              className="text-sm"
-              style={{ color: filter === item.value ? "#3b82f6" : "#6b7280" }}
-            >
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        )}
+      <StatsBar requests={requests} />
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        categoryFilter={categoryFilter}
+        onCategoryChange={setCategoryFilter}
+        sort={sort}
+        onSortChange={setSort}
       />
 
-      {/* Request list */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
+        }
         renderItem={({ item }) => (
           <RequestCard
             request={item}

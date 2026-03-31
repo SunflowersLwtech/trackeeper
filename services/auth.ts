@@ -43,6 +43,13 @@ export async function getUserProfile(uid: string): Promise<User | null> {
   return snapshot.data() as User;
 }
 
+export async function updateUserProfile(
+  uid: string,
+  fields: Partial<Pick<User, "name" | "unitNumber">>,
+): Promise<void> {
+  await setDoc(doc(db, "users", uid), fields, { merge: true });
+}
+
 export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(auth, callback);
 }

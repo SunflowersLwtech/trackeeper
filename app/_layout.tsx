@@ -3,6 +3,8 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import Toast from "react-native-toast-message";
+import { toastConfig } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 export { ErrorBoundary } from "expo-router";
@@ -38,6 +40,8 @@ function RootNavigator() {
     } else if (user && inAuthGroup) {
       if (user.role === "manager") {
         router.replace("/(manager)");
+      } else if (user.role === "maintainer") {
+        router.replace("/(maintainer)");
       } else {
         router.replace("/(tenant)");
       }
@@ -53,6 +57,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <RootNavigator />
+      <Toast config={toastConfig} />
     </AuthProvider>
   );
 }
