@@ -7,7 +7,7 @@ interface ChatBubbleProps {
   isOwn: boolean;
 }
 
-export function ChatBubble({ message, isOwn }: ChatBubbleProps) {
+export const ChatBubble = React.memo(function ChatBubble({ message, isOwn }: ChatBubbleProps) {
   const time = message.createdAt?.toDate
     ? formatTime(message.createdAt.toDate())
     : "";
@@ -44,7 +44,7 @@ export function ChatBubble({ message, isOwn }: ChatBubbleProps) {
       </Text>
     </View>
   );
-}
+});
 
 function formatTime(date: Date): string {
   const h = date.getHours().toString().padStart(2, "0");

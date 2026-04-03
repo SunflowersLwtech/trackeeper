@@ -17,6 +17,7 @@ function getMessagesRef(requestId: string) {
   return collection(db, "requests", requestId, "messages");
 }
 
+/** Send a chat message in a request's message thread. */
 export async function sendMessage(
   requestId: string,
   senderId: string,
@@ -32,6 +33,7 @@ export async function sendMessage(
   return docRef.id;
 }
 
+/** Subscribe to real-time chat messages for a request. Limited to 50 most recent. */
 export function subscribeToMessages(
   requestId: string,
   callback: (messages: Message[]) => void,

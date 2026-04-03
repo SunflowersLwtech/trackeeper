@@ -14,6 +14,7 @@ function getNotesRef(requestId: string) {
   return collection(db, "requests", requestId, "notes");
 }
 
+/** Add a private manager note to a request. */
 export async function addNote(
   requestId: string,
   managerId: string,
@@ -29,6 +30,7 @@ export async function addNote(
   return docRef.id;
 }
 
+/** Subscribe to real-time manager notes for a request. Manager-only. */
 export function subscribeToNotes(
   requestId: string,
   callback: (notes: Note[]) => void,

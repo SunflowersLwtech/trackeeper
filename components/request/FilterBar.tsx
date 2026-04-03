@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-nativ
 import { Ionicons } from "@expo/vector-icons";
 import { RequestStatus, RequestCategory } from "@/types";
 
-const STATUS_FILTERS: Array<{ label: string; value: RequestStatus | "all" }> = [
+const STATUS_FILTERS: { label: string; value: RequestStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Submitted", value: "submitted" },
   { label: "Assigned", value: "assigned" },
@@ -13,7 +13,7 @@ const STATUS_FILTERS: Array<{ label: string; value: RequestStatus | "all" }> = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-const CATEGORY_FILTERS: Array<{ label: string; value: RequestCategory | "all" }> = [
+const CATEGORY_FILTERS: { label: string; value: RequestCategory | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Plumbing", value: "Plumbing" },
   { label: "Electrical", value: "Electrical" },
@@ -22,7 +22,7 @@ const CATEGORY_FILTERS: Array<{ label: string; value: RequestCategory | "all" }>
 
 export type SortOption = "newest" | "oldest" | "priority";
 
-const SORT_OPTIONS: Array<{ label: string; value: SortOption }> = [
+const SORT_OPTIONS: { label: string; value: SortOption }[] = [
   { label: "Newest", value: "newest" },
   { label: "Oldest", value: "oldest" },
   { label: "Priority", value: "priority" },
@@ -44,7 +44,7 @@ function ChipRow<T extends string>({
   selected,
   onSelect,
 }: {
-  items: Array<{ label: string; value: T }>;
+  items: { label: string; value: T }[];
   selected: T;
   onSelect: (value: T) => void;
 }) {
@@ -63,6 +63,9 @@ function ChipRow<T extends string>({
             backgroundColor: selected === item.value ? "#eff6ff" : "#fff",
           }}
           onPress={() => onSelect(item.value)}
+          accessibilityRole="button"
+          accessibilityLabel={`Filter by status: ${item.label}`}
+          accessibilityState={{ selected: selected === item.value }}
         >
           <Text
             className="text-xs"
@@ -102,9 +105,12 @@ export function FilterBar({
             placeholderTextColor="#9ca3af"
             value={search}
             onChangeText={onSearchChange}
+            accessibilityLabel="Search requests"
+            accessibilityRole="search"
+            testID="filter-search-input"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => onSearchChange("")}>
+            <TouchableOpacity onPress={() => onSearchChange("")} accessibilityRole="button" accessibilityLabel="Clear search">
               <Ionicons name="close-circle" size={18} color="#9ca3af" />
             </TouchableOpacity>
           )}
@@ -126,6 +132,9 @@ export function FilterBar({
                 backgroundColor: categoryFilter === item.value ? "#f5f3ff" : "#fff",
               }}
               onPress={() => onCategoryChange(item.value)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by category: ${item.label}`}
+              accessibilityState={{ selected: categoryFilter === item.value }}
             >
               <Text
                 className="text-xs"
@@ -147,6 +156,9 @@ export function FilterBar({
                 backgroundColor: sort === item.value ? "#111827" : "#f3f4f6",
               }}
               onPress={() => onSortChange(item.value)}
+              accessibilityRole="button"
+              accessibilityLabel={`Sort by: ${item.label}`}
+              accessibilityState={{ selected: sort === item.value }}
             >
               <Text
                 className="text-xs"

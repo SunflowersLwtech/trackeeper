@@ -8,18 +8,25 @@ interface ChatViewProps {
   messages: Message[];
   currentUserId: string;
   loading: boolean;
+  error?: Error | null;
   onSend: (text: string) => void;
 }
 
-export function ChatView({ messages, currentUserId, loading, onSend }: ChatViewProps) {
+export function ChatView({ messages, currentUserId, loading, error, onSend }: ChatViewProps) {
   return (
     <View className="flex-1">
-      {loading ? (
-        <View className="flex-1 items-center justify-center py-8">
+      {error ? (
+        <View className="flex-1 items-center justify-center py-8" accessibilityLabel="Messages failed to load" accessibilityRole="text">
+          <Text className="text-sm" style={{ color: "#ef4444" }}>
+            Failed to load messages
+          </Text>
+        </View>
+      ) : loading ? (
+        <View className="flex-1 items-center justify-center py-8" accessibilityLabel="Loading messages" accessibilityRole="text">
           <ActivityIndicator size="small" color="#3b82f6" />
         </View>
       ) : messages.length === 0 ? (
-        <View className="flex-1 items-center justify-center py-8">
+        <View className="flex-1 items-center justify-center py-8" accessibilityLabel="No messages yet. Start the conversation!" accessibilityRole="text">
           <Text className="text-sm" style={{ color: "#9ca3af" }}>
             No messages yet. Start the conversation!
           </Text>

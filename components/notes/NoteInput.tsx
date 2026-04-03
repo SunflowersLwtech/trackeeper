@@ -32,12 +32,19 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
         onChangeText={setText}
         multiline
         editable={!submitting}
+        accessibilityLabel="Internal note input"
+        accessibilityHint="Type an internal note to add"
+        testID="note-input"
       />
       <TouchableOpacity
         className="px-4 py-2.5 rounded-xl"
         style={{ backgroundColor: text.trim() && !submitting ? "#f59e0b" : "#e5e7eb" }}
         onPress={handleSubmit}
         disabled={!text.trim() || submitting}
+        accessibilityRole="button"
+        accessibilityLabel="Submit note"
+        accessibilityState={{ disabled: !text.trim() || submitting, busy: submitting }}
+        testID="submit-note-button"
       >
         {submitting ? (
           <ActivityIndicator color="#fff" size="small" />

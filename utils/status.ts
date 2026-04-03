@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
 };
 
 /** Role-based transition rules */
-const ROLE_TRANSITIONS: Record<UserRole, Array<[RequestStatus, RequestStatus]>> = {
+const ROLE_TRANSITIONS: Record<UserRole, [RequestStatus, RequestStatus][]> = {
   tenant: [
     ["submitted", "cancelled"],
     ["assigned", "cancelled"],

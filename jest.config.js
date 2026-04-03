@@ -6,6 +6,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
+  testPathIgnorePatterns: ["/node_modules/", "__tests__/rules/"],
   setupFilesAfterEnv: [],
   collectCoverageFrom: [
     "utils/**/*.ts",

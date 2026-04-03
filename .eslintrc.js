@@ -11,4 +11,12 @@ module.exports = {
     "@typescript-eslint/no-unused-vars": "error",
     "@typescript-eslint/no-explicit-any": "error",
   },
+  overrides: [
+    {
+      files: ["__tests__/**/*.ts", "__tests__/**/*.tsx"],
+      rules: {
+        "import/first": "off",
+      },
+    },
+  ],
 };

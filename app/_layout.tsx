@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AppErrorBoundary } from "@/components/ErrorBoundary";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -46,7 +47,7 @@ function RootNavigator() {
         router.replace("/(tenant)");
       }
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, router]);
 
   if (loading) return <LoadingScreen />;
 
@@ -55,9 +56,11 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-      <Toast config={toastConfig} />
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <RootNavigator />
+        <Toast config={toastConfig} />
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }

@@ -10,6 +10,7 @@ import { User } from "@/types";
 
 const USERS_COLLECTION = "users";
 
+/** Subscribe to real-time list of all maintainer users. Used for assignment UI. */
 export function subscribeToMaintainers(
   callback: (maintainers: User[]) => void,
   onError?: (error: Error) => void,

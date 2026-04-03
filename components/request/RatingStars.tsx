@@ -19,6 +19,9 @@ export function RatingStars({ rating, onRate, size = 28, readonly = false }: Rat
           disabled={readonly}
           activeOpacity={readonly ? 1 : 0.6}
           style={{ paddingHorizontal: 2 }}
+          accessibilityRole={readonly ? "text" : "button"}
+          accessibilityLabel={`${star} star${star > 1 ? "s" : ""}${star <= rating ? ", selected" : ""}`}
+          accessibilityHint={readonly ? undefined : `Rate ${star} out of 5`}
         >
           <Ionicons
             name={star <= rating ? "star" : "star-outline"}

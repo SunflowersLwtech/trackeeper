@@ -5,9 +5,18 @@ import { Note } from "@/types";
 interface NotesListProps {
   notes: Note[];
   loading: boolean;
+  error?: Error | null;
 }
 
-export function NotesList({ notes, loading }: NotesListProps) {
+export function NotesList({ notes, loading, error }: NotesListProps) {
+  if (error) {
+    return (
+      <View className="py-4 items-center">
+        <Text className="text-xs" style={{ color: "#ef4444" }}>Failed to load notes</Text>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View className="py-4 items-center">

@@ -1,16 +1,10 @@
-import { RequestCategory, RequestPriority, UserRole } from "@/types";
+import { RequestCategory, RequestPriority } from "@/types";
 
 const VALID_CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
 const VALID_PRIORITIES: RequestPriority[] = ["low", "medium", "high"];
 
-const MANAGER_INVITE_CODE = "TRACKEEPER2026";
-
-export function validateInviteCode(code: string, role: UserRole): string | null {
-  if (role === "tenant") return null;
-  if (!code.trim()) return "Invite code is required for this role";
-  if (code.trim() !== MANAGER_INVITE_CODE) return "Invalid invite code";
-  return null;
-}
+// Invite code validation removed: Firestore rules enforce tenant-only self-registration.
+// Manager/maintainer profiles are provisioned via Admin SDK or Cloud Functions.
 
 export interface ValidationError {
   field: string;

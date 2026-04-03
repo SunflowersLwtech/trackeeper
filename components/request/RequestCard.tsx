@@ -10,7 +10,7 @@ interface RequestCardProps {
   onPress: () => void;
 }
 
-export function RequestCard({ request, onPress }: RequestCardProps) {
+export const RequestCard = React.memo(function RequestCard({ request, onPress }: RequestCardProps) {
   const timeAgo = request.createdAt?.toDate
     ? formatTimeAgo(request.createdAt.toDate())
     : "";
@@ -21,6 +21,10 @@ export function RequestCard({ request, onPress }: RequestCardProps) {
       style={{ borderColor: "#e5e7eb" }}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${request.title}, status: ${request.status}`}
+      accessibilityHint="Opens request details"
+      testID={`request-card-${request.title}`}
     >
       <View className="flex-row items-start justify-between mb-2">
         <Text
@@ -70,7 +74,7 @@ export function RequestCard({ request, onPress }: RequestCardProps) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 function formatTimeAgo(date: Date): string {
   const now = new Date();
