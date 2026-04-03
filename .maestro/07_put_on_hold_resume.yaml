@@ -1,0 +1,113 @@
+appId: host.exp.Exponent
+---
+# Test: Put On Hold and Resume Flow
+# Logs in as maintainer, puts an in_progress task on hold, then resumes it.
+#
+# Requires: node scripts/maestro-input-server.js on port 4567.
+# Requires: at least one request with status "in_progress" assigned to Test Maintainer.
+
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as maintainer ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testmaintainer@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "My Tasks"
+    timeout: 20000
+
+# --- Filter to In Progress ---
+- tapOn:
+    id: "maintainer-filter-in_progress"
+- waitForAnimationToEnd
+
+# --- Tap first in_progress task ---
+- tapOn:
+    text: "In Progress"
+    index: 1
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Task Detail"
+    timeout: 10000
+
+# --- Put On Hold ---
+- scrollUntilVisible:
+    element:
+      id: "put-on-hold-button"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "put-on-hold-button"
+
+- tapOn:
+    text: "Confirm"
+    optional: true
+- waitForAnimationToEnd
+
+# Should see Resume button
+- extendedWaitUntil:
+    visible:
+      id: "resume-task-button"
+    timeout: 10000
+
+# --- Resume ---
+- tapOn:
+    id: "resume-task-button"
+
+- tapOn:
+    text: "Confirm"
+    optional: true
+- waitForAnimationToEnd
+
+# Should see Mark Complete and Put On Hold buttons again
+- extendedWaitUntil:
+    visible:
+      id: "mark-complete-button"
+    timeout: 10000

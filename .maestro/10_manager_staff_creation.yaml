@@ -1,0 +1,99 @@
+appId: host.exp.Exponent
+---
+# Test: Manager Staff User Creation
+# Logs in as manager, navigates to Staff tab, and verifies the creation UI.
+#
+# Requires: node scripts/maestro-input-server.js on port 4567.
+
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as manager ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testmanager@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 20000
+
+# --- Navigate to Staff tab ---
+- tapOn:
+    text: "Staff"
+- waitForAnimationToEnd
+
+# --- Verify staff list is visible ---
+- extendedWaitUntil:
+    visible: "Maintainers"
+    timeout: 10000
+
+# --- Open creation form ---
+- tapOn:
+    id: "create-staff-button"
+- waitForAnimationToEnd
+
+# Should see creation form
+- assertVisible: "New Staff Account"
+- assertVisible: "Maintainer"
+- assertVisible: "Manager"
+
+# --- Verify form fields exist ---
+- assertVisible:
+    id: "staff-name-input"
+- assertVisible:
+    id: "staff-email-input"
+- assertVisible:
+    id: "staff-password-input"
+
+# --- Cancel creation ---
+- tapOn:
+    text: "Cancel"
+- waitForAnimationToEnd
+
+# Should be back to staff list
+- assertVisible:
+    id: "create-staff-button"

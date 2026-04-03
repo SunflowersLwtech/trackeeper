@@ -1,0 +1,117 @@
+appId: host.exp.Exponent
+---
+# Test: Maintainer Accept and Complete Task Flow
+# Logs in as seeded maintainer, accepts an assigned task, then marks it complete.
+#
+# Requires: node scripts/maestro-input-server.js on port 4567.
+# Requires: at least one request assigned to Test Maintainer in Firestore.
+
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+# Dismiss dev menu overlay if present
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as maintainer ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testmaintainer@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "My Tasks"
+    timeout: 20000
+- assertVisible: "My Tasks"
+
+# --- Filter to Assigned tasks ---
+- tapOn:
+    id: "maintainer-filter-assigned"
+- waitForAnimationToEnd
+
+# --- Tap first assigned task ---
+- tapOn:
+    text: "Assigned"
+    index: 1
+    optional: true
+
+# Wait for detail screen
+- extendedWaitUntil:
+    visible: "Task Detail"
+    timeout: 10000
+
+# --- Accept task ---
+- scrollUntilVisible:
+    element:
+      id: "accept-task-button"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "accept-task-button"
+
+# Confirm dialog
+- tapOn:
+    text: "Confirm"
+    optional: true
+- waitForAnimationToEnd
+
+# Should see "Mark Complete" button after accepting
+- extendedWaitUntil:
+    visible:
+      id: "mark-complete-button"
+    timeout: 10000
+
+# --- Mark complete ---
+- tapOn:
+    id: "mark-complete-button"
+
+- tapOn:
+    text: "Confirm"
+    optional: true
+- waitForAnimationToEnd
+
+# Should see "Completed" section
+- extendedWaitUntil:
+    visible: "Completed"
+    timeout: 10000
+- assertVisible: "Completed"

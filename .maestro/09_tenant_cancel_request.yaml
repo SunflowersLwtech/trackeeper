@@ -1,0 +1,92 @@
+appId: host.exp.Exponent
+---
+# Test: Tenant Cancel Request Flow
+# Logs in as tenant, creates a request, then cancels it.
+#
+# Requires: node scripts/maestro-input-server.js on port 4567.
+
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as tenant ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testtenant@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "My Requests"
+    timeout: 20000
+
+# --- Tap first request card (if any are in submitted status) ---
+# Look for a request that shows "Submitted" status
+- tapOn:
+    text: "Submitted"
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Request Detail"
+    timeout: 10000
+
+# --- Cancel the request ---
+- scrollUntilVisible:
+    element:
+      id: "cancel-request-button"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "cancel-request-button"
+
+# Confirm the cancellation
+- tapOn:
+    text: "Confirm"
+    optional: true
+- waitForAnimationToEnd
+
+# Should see "Cancelled" status in timeline
+- extendedWaitUntil:
+    visible: "Cancelled"
+    timeout: 10000
