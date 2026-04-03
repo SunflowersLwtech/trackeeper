@@ -7,50 +7,191 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Users collection
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Requests collection
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidStatus(status) {
+      return status in ["submitted", "assigned", "in_progress", "completed", "cancelled", "on_hold"];
+    }
+
+    function isValidCategory(cat) {
+      return cat in ["Plumbing", "Electrical", "General"];
+    }
+
+    function isValidPriority(p) {
+      return p in ["low", "medium", "high"];
+    }
+
+    // ─── Users collection ───
+    match /users/{userId} {
+      // Read: authenticated users can read public profile fields
+      // (needed for maintainer list, sender names in chat)
+      allow read: if isAuthenticated();
+
+      // Create: ONLY tenant role via public self-registration
+      // Manager/maintainer profiles must be provisioned via Cloud Functions or Admin SDK
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(["uid", "email", "name", "role"])
+        && request.resource.data.keys().hasOnly(["uid", "email", "name", "role", "phone", "unitNumber"])
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == "tenant"
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2;
+
+      // Update: own profile only, cannot change role/uid/email
+      allow update: if isOwner(userId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.keys().hasOnly(["uid", "email", "name", "role", "phone", "unitNumber"]);
+
+      allow delete: if false;
+    }
+
+    // ─── Requests collection ───
     match /requests/{requestId} {
-      // Tenants read own, managers read all, maintainers read assigned
-      allow read: if request.auth != null && (
+
+      // Read: tenants see own, managers see all, maintainers see assigned
+      allow read: if isAuthenticated() && (
         getUserRole() == "manager" ||
         resource.data.tenantId == request.auth.uid ||
         resource.data.assignedTo == request.auth.uid
       );
 
-      // Only tenants can create requests
-      allow create: if request.auth != null && getUserRole() == "tenant";
+      // Create: only tenants, strict field whitelist and value validation
+      allow create: if isAuthenticated()
+        && getUserRole() == "tenant"
+        && request.resource.data.tenantId == request.auth.uid
+        && request.resource.data.status == "submitted"
+        && request.resource.data.keys().hasAll(["title", "description", "category", "priority", "status", "tenantId", "tenantName", "statusHistory", "createdAt", "clientTimestamp", "imageUrl"])
+        && request.resource.data.keys().hasOnly(["title", "description", "category", "priority", "status", "tenantId", "tenantName", "statusHistory", "createdAt", "clientTimestamp", "imageUrl"])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 5
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10
+        && isValidCategory(request.resource.data.category)
+        && isValidPriority(request.resource.data.priority);
 
-      // Update rules by role
-      allow update: if request.auth != null && (
-        getUserRole() == "manager" ||
-        (getUserRole() == "tenant" && resource.data.tenantId == request.auth.uid) ||
-        (getUserRole() == "maintainer" && resource.data.assignedTo == request.auth.uid)
+      // Update: role-based, field-constrained
+      allow update: if isAuthenticated() && (
+
+        // ── Manager: status transitions + assignment ──
+        // Preserves tenant ownership and creation timestamp
+        // Enforces valid status and state machine transitions
+        (getUserRole() == "manager"
+          && request.resource.data.tenantId == resource.data.tenantId
+          && request.resource.data.tenantName == resource.data.tenantName
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.category == resource.data.category
+          && isValidStatus(request.resource.data.status)
+          // Manager transition whitelist
+          && (
+            (resource.data.status == "submitted" && request.resource.data.status == "assigned")
+            || (resource.data.status == "assigned" && request.resource.data.status == "on_hold")
+            || (resource.data.status == "in_progress" && request.resource.data.status == "on_hold")
+            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
+            // Allow manager to update without status change (e.g., re-assign)
+            || (request.resource.data.status == resource.data.status)
+          )
+        ) ||
+
+        // ── Tenant: content edits, cancellation, rating, image upload ──
+        (getUserRole() == "tenant"
+          && resource.data.tenantId == request.auth.uid
+          // Immutable ownership and metadata
+          && request.resource.data.tenantId == resource.data.tenantId
+          && request.resource.data.tenantName == resource.data.tenantName
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (!("assignedTo" in resource.data) || request.resource.data.assignedTo == resource.data.assignedTo)
+          && (
+            // Edit content fields ONLY when status is submitted (statusHistory immutable)
+            (request.resource.data.status == resource.data.status
+              && resource.data.status == "submitted"
+              && request.resource.data.statusHistory == resource.data.statusHistory)
+            // Cancel from submitted or assigned (statusHistory may change via arrayUnion)
+            || (request.resource.data.status == "cancelled"
+              && resource.data.status in ["submitted", "assigned"])
+            // Rate when completed (rating 1-5, preserve status, statusHistory immutable)
+            || (request.resource.data.status == resource.data.status
+              && resource.data.status == "completed"
+              && request.resource.data.statusHistory == resource.data.statusHistory
+              && request.resource.data.rating is number
+              && request.resource.data.rating >= 1
+              && request.resource.data.rating <= 5)
+          )
+        ) ||
+
+        // ── Maintainer: status transitions only ──
+        (getUserRole() == "maintainer"
+          && resource.data.assignedTo == request.auth.uid
+          // All non-status fields immutable
+          && request.resource.data.tenantId == resource.data.tenantId
+          && request.resource.data.tenantName == resource.data.tenantName
+          && request.resource.data.assignedTo == resource.data.assignedTo
+          && request.resource.data.assignedToName == resource.data.assignedToName
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.description == resource.data.description
+          && request.resource.data.category == resource.data.category
+          && request.resource.data.priority == resource.data.priority
+          && isValidStatus(request.resource.data.status)
+          // Transition whitelist
+          && (
+            (resource.data.status == "assigned" && request.resource.data.status in ["in_progress", "on_hold"])
+            || (resource.data.status == "in_progress" && request.resource.data.status in ["completed", "on_hold"])
+            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
+          )
+        )
       );
 
-      // Messages: participants only (tenant + manager + assigned maintainer)
+      allow delete: if false;
+
+      // ─── Messages subcollection ───
       match /messages/{messageId} {
-        allow read: if request.auth != null && (
+        allow read: if isAuthenticated() && (
           getUserRole() == "manager" ||
           get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
           get(/databases/$(database)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
         );
-        allow create: if request.auth != null && (
-          getUserRole() == "manager" ||
-          get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
-          get(/databases/$(database)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
-        );
+
+        allow create: if isAuthenticated()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.keys().hasAll(["senderId", "senderName", "text", "createdAt"])
+          && request.resource.data.keys().hasOnly(["senderId", "senderName", "text", "createdAt"])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.senderName is string
+          && (
+            getUserRole() == "manager" ||
+            get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
+            get(/databases/$(database)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
+          );
+
+        allow update: if false;
+        allow delete: if false;
       }
 
-      // Notes: manager only
+      // ─── Notes subcollection (manager only) ───
       match /notes/{noteId} {
-        allow read: if request.auth != null && getUserRole() == "manager";
-        allow create: if request.auth != null && getUserRole() == "manager";
+        allow read: if isAuthenticated() && getUserRole() == "manager";
+
+        allow create: if isAuthenticated()
+          && getUserRole() == "manager"
+          && request.resource.data.managerId == request.auth.uid
+          && request.resource.data.keys().hasAll(["managerId", "managerName", "text", "createdAt"])
+          && request.resource.data.keys().hasOnly(["managerId", "managerName", "text", "createdAt"])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.managerName is string;
+
+        allow update: if false;
+        allow delete: if false;
       }
     }
   }

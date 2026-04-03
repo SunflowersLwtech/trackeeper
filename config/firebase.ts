@@ -1,17 +1,22 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, browserLocalPersistence } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeAuth, browserLocalPersistence } from "firebase/auth";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
+
+// Environment-based Firebase config via app.json extra or env vars
+// Falls back to default project config if not set
+const extra = Constants.expoConfig?.extra ?? {};
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAe5xWkCaRAic3LFUgjwA_-1MN1Jl8a3bY",
-  authDomain: "trackeeper-912ea.firebaseapp.com",
-  projectId: "trackeeper-912ea",
-  storageBucket: "trackeeper-912ea.firebasestorage.app",
-  messagingSenderId: "778187557933",
-  appId: "1:778187557933:web:0e17e8e9ddc6ae6a833ca4",
-  measurementId: "G-MTGXLWF4G1",
+  apiKey: (extra.FIREBASE_API_KEY as string) || "AIzaSyAS_Rz6v5jfcmsEIHHP_gBv0FxXxWzO7ew",
+  authDomain: (extra.FIREBASE_AUTH_DOMAIN as string) || "tracekeeper-51b4d.firebaseapp.com",
+  projectId: (extra.FIREBASE_PROJECT_ID as string) || "tracekeeper-51b4d",
+  storageBucket: (extra.FIREBASE_STORAGE_BUCKET as string) || "tracekeeper-51b4d.firebasestorage.app",
+  messagingSenderId: (extra.FIREBASE_MESSAGING_SENDER_ID as string) || "882072395645",
+  appId: (extra.FIREBASE_APP_ID as string) || "1:882072395645:web:efea775a61fc7a4e9eb614",
+  measurementId: (extra.FIREBASE_MEASUREMENT_ID as string) || "G-17Q38MBZ8L",
 };
 
 const app = initializeApp(firebaseConfig);
@@ -28,14 +33,16 @@ function createAuth() {
   // Dynamic require to avoid web bundle crash (firebase-js-sdk#9739)
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const AsyncStorage = require("@react-native-async-storage/async-storage").default;
-  // @ts-ignore — getReactNativePersistence exists in RN bundle but not in web types
-  const { getReactNativePersistence } = require("firebase/auth");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const firebaseAuth = require("firebase/auth") as { getReactNativePersistence: (storage: typeof AsyncStorage) => import("firebase/auth").Persistence };
   return initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: firebaseAuth.getReactNativePersistence(AsyncStorage),
   });
 }
 
 export const auth = createAuth();
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 export const storage = getStorage(app);
 export default app;
