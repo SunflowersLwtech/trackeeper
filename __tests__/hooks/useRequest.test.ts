@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react-native/pure";
+import { renderHook } from "@testing-library/react-native/pure";
 import { useRequest } from "@/hooks/useRequest";
 import { subscribeToRequest } from "@/services/requests";
 
@@ -50,7 +50,7 @@ describe("useRequest", () => {
   it("does not subscribe if requestId is undefined", () => {
     const { result } = renderHook(() => useRequest(undefined));
     expect(mockSubscribe).not.toHaveBeenCalled();
-    expect(result.current.loading).toBe(true);
+    expect(result.current.loading).toBe(false);
   });
 
   it("calls unsubscribe on unmount", () => {

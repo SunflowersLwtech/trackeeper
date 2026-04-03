@@ -8,8 +8,9 @@ export function useMessages(requestId: string | undefined) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!requestId) return;
+    if (!requestId) { setLoading(false); return; }
     setLoading(true);
+    setError(null);
     const unsubscribe = subscribeToMessages(
       requestId,
       (data) => {

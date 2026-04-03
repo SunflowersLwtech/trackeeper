@@ -14,6 +14,7 @@ export function useMaintainers() {
     unsubRef.current = subscribeToMaintainers(
       (data) => {
         setMaintainers(data);
+        setError(null);
         setLoading(false);
       },
       (err) => {

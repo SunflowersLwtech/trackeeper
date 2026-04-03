@@ -17,6 +17,7 @@ export function useMaintainerRequests(maintainerId: string | undefined) {
       maintainerId,
       (data) => {
         setRequests(data);
+        setError(null);
         setLoading(false);
         setRefreshing(false);
       },

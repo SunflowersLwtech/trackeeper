@@ -17,6 +17,7 @@ export function useTenantRequests(tenantId: string | undefined) {
       tenantId,
       (data) => {
         setRequests(data);
+        setError(null);
         setLoading(false);
         setRefreshing(false);
       },
@@ -54,6 +55,7 @@ export function useAllRequests() {
     unsubRef.current = subscribeToAllRequests(
       (data) => {
         setRequests(data);
+        setError(null);
         setLoading(false);
         setRefreshing(false);
       },

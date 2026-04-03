@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react-native/pure";
+import { renderHook } from "@testing-library/react-native/pure";
 import { useMaintainers } from "@/hooks/useMaintainers";
 import { subscribeToMaintainers } from "@/services/users";
 

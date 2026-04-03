@@ -1,6 +1,7 @@
-import { renderHook, act } from "@testing-library/react-native/pure";
+import { renderHook } from "@testing-library/react-native/pure";
 import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
 import { subscribeToMaintainerRequests } from "@/services/requests";
+import { MaintenanceRequest } from "@/types";
 
 jest.mock("@/services/requests", () => ({
   subscribeToMaintainerRequests: jest.fn(),
@@ -19,14 +20,14 @@ describe("useMaintainerRequests", () => {
   });
 
   it("does not subscribe without maintainerId", () => {
-    const { result } = renderHook(() => useMaintainerRequests(undefined));
+    renderHook(() => useMaintainerRequests(undefined));
     expect(mockSubscribe).not.toHaveBeenCalled();
   });
 
   it("updates with request data", () => {
     const mockUnsub = jest.fn();
     mockSubscribe.mockImplementation((id, cb) => {
-      cb([{ id: "r1", title: "Fix pipe", status: "assigned" }] as any);
+      cb([{ id: "r1", title: "Fix pipe", status: "assigned" } as MaintenanceRequest]);
       return mockUnsub;
     });
     const { result } = renderHook(() => useMaintainerRequests("maint-1"));
