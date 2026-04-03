@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@/types";
 import { onAuthChange, getUserProfile, signOut } from "@/services/auth";
+import { unregisterPushToken } from "@/services/notifications";
 
 interface AuthState {
   user: User | null;
@@ -44,6 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleSignOut = async () => {
+    if (user) {
+      await unregisterPushToken(user.uid).catch(() => {});
+    }
     await signOut();
     setUser(null);
     setError(null);

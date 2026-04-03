@@ -7,6 +7,7 @@ import Toast from "react-native-toast-message";
 import { toastConfig } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -24,6 +25,7 @@ function RootNavigator() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  useNotifications();
 
   React.useEffect(() => {
     if (!loading) {
