@@ -55,3 +55,5 @@ firestore-debug.log
 
 # Coverage
 coverage/
+.claude/
+.playwright-mcp/
