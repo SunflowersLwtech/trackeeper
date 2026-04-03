@@ -1,7 +1,6 @@
 import {
   addDoc,
   updateDoc,
-  doc,
   onSnapshot,
 } from "firebase/firestore";
 
@@ -13,6 +12,7 @@ jest.mock("firebase/firestore", () => ({
   query: jest.fn(() => "mock-query"),
   where: jest.fn(),
   orderBy: jest.fn(),
+  limit: jest.fn(),
   onSnapshot: jest.fn(() => jest.fn()),
   serverTimestamp: jest.fn(() => "mock-ts"),
   arrayUnion: jest.fn((...args) => args),
@@ -33,7 +33,6 @@ jest.mock("@/config/firebase", () => ({
 
 import {
   createRequest,
-  uploadRequestImage,
   updateRequestStatus,
   cancelRequest,
   updateRequest,
@@ -48,54 +47,15 @@ import {
   subscribeToMaintainerRequests,
 } from "@/services/requests";
 
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { uploadBytesResumable } from "firebase/storage";
 
 const mockAddDoc = addDoc as jest.MockedFunction<typeof addDoc>;
 const mockUpdateDoc = updateDoc as jest.MockedFunction<typeof updateDoc>;
 const mockOnSnapshot = onSnapshot as jest.Mock;
 
-const mockRef = ref as jest.Mock;
 const mockUpload = uploadBytesResumable as jest.Mock;
-const mockGetDownloadURL = getDownloadURL as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
-
-describe("uploadRequestImage", () => {
-  it("uploads image and returns download URL", async () => {
-    // Mock fetch + blob
-    const mockBlob = new Blob(["test"]);
-    global.fetch = jest.fn().mockResolvedValue({ blob: () => Promise.resolve(mockBlob) });
-
-    // Mock upload task
-    const mockTask = {
-      on: jest.fn((_event: string, _progress: unknown, _error: unknown, complete: () => void) => {
-        complete();
-      }),
-      snapshot: { ref: "mock-snapshot-ref" },
-    };
-    mockUpload.mockReturnValue(mockTask);
-    mockGetDownloadURL.mockResolvedValue("https://storage.example.com/image.jpg");
-
-    const url = await uploadRequestImage("file:///photo.jpg", "req-1");
-    expect(url).toBe("https://storage.example.com/image.jpg");
-    expect(global.fetch).toHaveBeenCalledWith("file:///photo.jpg");
-    expect(mockGetDownloadURL).toHaveBeenCalledWith("mock-snapshot-ref");
-  });
-
-  it("rejects on upload error", async () => {
-    global.fetch = jest.fn().mockResolvedValue({ blob: () => Promise.resolve(new Blob()) });
-    const uploadError = new Error("Upload failed");
-    const mockTask = {
-      on: jest.fn((_event: string, _progress: unknown, onError: (e: Error) => void) => {
-        onError(uploadError);
-      }),
-      snapshot: { ref: "mock-snapshot-ref" },
-    };
-    mockUpload.mockReturnValue(mockTask);
-
-    await expect(uploadRequestImage("file:///photo.jpg", "req-1")).rejects.toThrow("Upload failed");
-  });
-});
 
 describe("createRequest", () => {
   it("creates a document with correct fields and defaults priority to medium", async () => {
@@ -155,6 +115,32 @@ describe("createRequest", () => {
     const callArgs = mockAddDoc.mock.calls[0][1] as Record<string, unknown>;
     expect(callArgs.clientTimestamp).toBeGreaterThanOrEqual(before);
     expect(callArgs.clientTimestamp).toBeLessThanOrEqual(after);
+  });
+  it("gracefully handles image upload failure and still returns request ID", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ blob: () => Promise.resolve(new Blob()) });
+    const mockTask = {
+      on: jest.fn((_event: string, _progress: unknown, onError: (e: Error) => void) => {
+        onError(new Error("Upload failed"));
+      }),
+      snapshot: { ref: "mock-snapshot-ref" },
+    };
+    mockUpload.mockReturnValue(mockTask);
+    const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+
+    const id = await createRequest({
+      title: "With image",
+      description: "Has a photo",
+      category: "General",
+      tenantId: "user-1",
+      tenantName: "John",
+      imageUri: "file:///photo.jpg",
+    });
+
+    expect(id).toBe("req-123");
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Image upload failed"),
+    );
+    consoleSpy.mockRestore();
   });
 });
 

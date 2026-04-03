@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   arrayUnion,
@@ -19,7 +20,7 @@ import {
 } from "firebase/storage";
 import { db, storage } from "@/config/firebase";
 import { MaintenanceRequest, RequestStatus, RequestCategory, RequestPriority, UserRole } from "@/types";
-import { canTransition, canCancel, canTransitionWithRole } from "@/utils/status";
+import { canCancel, canTransitionWithRole } from "@/utils/status";
 
 const REQUESTS_COLLECTION = "requests";
 
@@ -33,7 +34,8 @@ export interface CreateRequestInput {
   imageUri?: string;
 }
 
-export async function uploadRequestImage(uri: string, requestId: string): Promise<string> {
+/** Upload a request image to Firebase Storage. Returns the download URL. */
+async function uploadRequestImage(uri: string, requestId: string): Promise<string> {
   const response = await fetch(uri);
   const blob = await response.blob();
   const imageRef = ref(storage, `requests/${requestId}/${Date.now()}.jpg`);
@@ -52,6 +54,7 @@ export async function uploadRequestImage(uri: string, requestId: string): Promis
   });
 }
 
+/** Create a new maintenance request. Image upload failures are handled gracefully. */
 export async function createRequest(input: CreateRequestInput): Promise<string> {
   const docRef = await addDoc(collection(db, REQUESTS_COLLECTION), {
     title: input.title,
@@ -68,13 +71,21 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
   });
 
   if (input.imageUri) {
-    const imageUrl = await uploadRequestImage(input.imageUri, docRef.id);
-    await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrl });
+    try {
+      const imageUrl = await uploadRequestImage(input.imageUri, docRef.id);
+      await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrl });
+    } catch {
+      // Request created successfully but image upload failed.
+      // The request is still valid without an image — return the ID
+      // so the user can see it and optionally re-upload later.
+      console.warn(`[createRequest] Image upload failed for request ${docRef.id}, continuing without image`);
+    }
   }
 
   return docRef.id;
 }
 
+/** Update request status with role-based transition validation. Throws on invalid transition. */
 export async function updateRequestStatus(
   requestId: string,
   currentStatus: RequestStatus,
@@ -98,6 +109,7 @@ export async function updateRequestStatus(
   });
 }
 
+/** Update editable fields on a request (title, description, category, priority). */
 export async function updateRequest(
   requestId: string,
   fields: Partial<Pick<MaintenanceRequest, "title" | "description" | "category" | "priority">>,
@@ -105,6 +117,7 @@ export async function updateRequest(
   await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), fields);
 }
 
+/** Submit a 1-5 star rating with optional comment for a completed request. */
 export async function rateRequest(
   requestId: string,
   rating: number,
@@ -119,6 +132,7 @@ export async function rateRequest(
   });
 }
 
+/** Cancel a request. Only allowed from submitted or assigned status. */
 export async function cancelRequest(
   requestId: string,
   currentStatus: RequestStatus,
@@ -140,6 +154,7 @@ export async function cancelRequest(
   });
 }
 
+/** Assign a request to a maintainer. Manager-only operation. */
 export async function assignRequest(
   requestId: string,
   currentStatus: RequestStatus,
@@ -169,6 +184,7 @@ export async function assignRequest(
   });
 }
 
+/** Put a request on hold from assigned or in_progress status. */
 export async function putOnHold(
   requestId: string,
   currentStatus: RequestStatus,
@@ -193,6 +209,7 @@ export async function putOnHold(
   });
 }
 
+/** Resume a request from on_hold back to assigned or in_progress. */
 export async function resumeRequest(
   requestId: string,
   resumeTo: "assigned" | "in_progress",
@@ -215,6 +232,7 @@ export async function resumeRequest(
   });
 }
 
+/** Mark a request as completed. Sets resolvedAt timestamp. Maintainer-only. */
 export async function completeRequest(
   requestId: string,
   currentStatus: RequestStatus,
@@ -237,6 +255,9 @@ export async function completeRequest(
   });
 }
 
+const REQUESTS_PAGE_SIZE = 100;
+
+/** Subscribe to real-time updates for a tenant's requests. Returns unsubscribe function. */
 export function subscribeToTenantRequests(
   tenantId: string,
   callback: (requests: MaintenanceRequest[]) => void,
@@ -246,6 +267,7 @@ export function subscribeToTenantRequests(
     collection(db, REQUESTS_COLLECTION),
     where("tenantId", "==", tenantId),
     orderBy("createdAt", "desc"),
+    limit(REQUESTS_PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -261,6 +283,7 @@ export function subscribeToTenantRequests(
   );
 }
 
+/** Subscribe to real-time updates for a maintainer's assigned requests. Returns unsubscribe function. */
 export function subscribeToMaintainerRequests(
   maintainerId: string,
   callback: (requests: MaintenanceRequest[]) => void,
@@ -270,6 +293,7 @@ export function subscribeToMaintainerRequests(
     collection(db, REQUESTS_COLLECTION),
     where("assignedTo", "==", maintainerId),
     orderBy("createdAt", "desc"),
+    limit(REQUESTS_PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -285,6 +309,7 @@ export function subscribeToMaintainerRequests(
   );
 }
 
+/** Subscribe to real-time updates for all requests (manager dashboard). Returns unsubscribe function. */
 export function subscribeToAllRequests(
   callback: (requests: MaintenanceRequest[]) => void,
   onError?: (error: Error) => void,
@@ -292,6 +317,7 @@ export function subscribeToAllRequests(
   const q = query(
     collection(db, REQUESTS_COLLECTION),
     orderBy("createdAt", "desc"),
+    limit(REQUESTS_PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -307,6 +333,7 @@ export function subscribeToAllRequests(
   );
 }
 
+/** Subscribe to real-time updates for a single request. Returns unsubscribe function. */
 export function subscribeToRequest(
   requestId: string,
   callback: (request: MaintenanceRequest | null) => void,
