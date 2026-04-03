@@ -5,18 +5,27 @@ import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-// Environment-based Firebase config via app.json extra or env vars
-// Falls back to default project config if not set
+// Firebase config loaded from environment variables via app.config.ts → extra.
+// Falls back to process.env for SSR / Node contexts where Constants is unavailable.
+// See .env.example for required variables. Copy to .env and fill in values.
 const extra = Constants.expoConfig?.extra ?? {};
 
+function requireEnv(key: string): string {
+  const value = (extra[key] as string | undefined) || (typeof process !== "undefined" ? process.env[key] : undefined);
+  if (!value) {
+    throw new Error(`Missing Firebase config: ${key}. Check your .env file and app.config.ts`);
+  }
+  return value;
+}
+
 const firebaseConfig = {
-  apiKey: (extra.FIREBASE_API_KEY as string) || "AIzaSyAS_Rz6v5jfcmsEIHHP_gBv0FxXxWzO7ew",
-  authDomain: (extra.FIREBASE_AUTH_DOMAIN as string) || "tracekeeper-51b4d.firebaseapp.com",
-  projectId: (extra.FIREBASE_PROJECT_ID as string) || "tracekeeper-51b4d",
-  storageBucket: (extra.FIREBASE_STORAGE_BUCKET as string) || "tracekeeper-51b4d.firebasestorage.app",
-  messagingSenderId: (extra.FIREBASE_MESSAGING_SENDER_ID as string) || "882072395645",
-  appId: (extra.FIREBASE_APP_ID as string) || "1:882072395645:web:efea775a61fc7a4e9eb614",
-  measurementId: (extra.FIREBASE_MEASUREMENT_ID as string) || "G-17Q38MBZ8L",
+  apiKey: requireEnv("FIREBASE_API_KEY"),
+  authDomain: requireEnv("FIREBASE_AUTH_DOMAIN"),
+  projectId: requireEnv("FIREBASE_PROJECT_ID"),
+  storageBucket: requireEnv("FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: requireEnv("FIREBASE_MESSAGING_SENDER_ID"),
+  appId: requireEnv("FIREBASE_APP_ID"),
+  measurementId: (extra.FIREBASE_MEASUREMENT_ID as string) || undefined,
 };
 
 const app = initializeApp(firebaseConfig);
