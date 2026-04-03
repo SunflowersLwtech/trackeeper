@@ -1,32 +1,137 @@
 appId: host.exp.Exponent
 ---
 # Test: Create Maintenance Request (as Tenant)
-- launchApp
+# Logs in as seeded tenant, creates a request.
+#
+# Uses simulator clipboard + native Paste workaround for iOS 26.2.
+# Requires: node scripts/maestro-input-server.js on port 4567.
 
-# Login as tenant
-- tapOn: "Enter your email"
-- inputText: "tenant@test.com"
-- tapOn: "Enter your password"
-- inputText: "123456"
-- tapOn: "Sign In"
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+# Dismiss dev menu overlay if present
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as tenant ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testtenant@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+# Dismiss "Save Password?" dialog
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "My Requests"
+    timeout: 20000
 - assertVisible: "My Requests"
 
-# Navigate to create
-- tapOn: "New Request"
+# --- Navigate to create ---
+# Tap the "New Request" tab (center of bottom tab bar)
+- tapOn:
+    text: "New Request"
+    retryTapIfNoChange: true
+    optional: true
+- tapOn:
+    point: "50%,94%"
+    optional: true
+- waitForAnimationToEnd
 
-# Fill form
-- tapOn: "Brief description of the issue"
-- inputText: "Leaking pipe in kitchen"
-- tapOn: "Plumbing"
-- tapOn: "Provide detailed information"
-- inputText: "Water is dripping from the sink pipe continuously"
+# --- Title ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Broken light in hallway"
+- tapOn:
+    id: "create-request-title-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "create-request-title-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+# Category
+- tapOn:
+    id: "create-request-category-electrical"
+
+# Priority
+- tapOn:
+    id: "create-request-priority-medium"
+
+# --- Description ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "The hallway light on the third floor has been flickering and now stopped working completely"
+- tapOn:
+    id: "create-request-description-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "create-request-description-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+# Hide keyboard by tapping on the header area
+- tapOn: "New Request"
+- waitForAnimationToEnd
+
+# Scroll down to submit button if needed
+- scrollUntilVisible:
+    element:
+      id: "create-request-submit-button"
+    direction: DOWN
+    timeout: 5000
 
 # Submit
-- tapOn: "Submit Request"
+- tapOn:
+    id: "create-request-submit-button"
 
-# Should see success
-- assertVisible: "Success"
-- tapOn: "OK"
-
-# Should see the request in list
-- assertVisible: "Leaking pipe in kitchen"
+# Should see success toast or navigate back to request list
+- extendedWaitUntil:
+    visible: "Broken light in hallway"
+    timeout: 15000

@@ -44,10 +44,11 @@ if [ "$MODE" != "--e2e-only" ]; then
   fi
 
   step "[2/5] ESLint"
-  if npx eslint . --ext .ts,.tsx --quiet 2>/dev/null; then
+  if ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx --quiet; then
     pass "Zero ESLint errors"
   else
-    warn "ESLint warnings (non-blocking)"
+    fail "ESLint errors found"
+    exit 1
   fi
 
   step "[3/5] Jest unit tests"

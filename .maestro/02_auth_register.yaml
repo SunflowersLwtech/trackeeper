@@ -1,21 +1,110 @@
 appId: host.exp.Exponent
 ---
-# Test: Registration Flow
-- launchApp
+# Test: Tenant Registration Flow
+# Registers a fresh tenant on tracekeeper-51b4d
+#
+# Uses simulator clipboard + native Paste workaround for iOS 26.2.
+# Requires: node scripts/maestro-input-server.js on port 4567.
+
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+# Dismiss dev menu overlay if present
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
 
 # Navigate to register
-- tapOn: "Sign Up"
+- tapOn:
+    id: "login-signup-link"
+- waitForAnimationToEnd
 
-# Fill form
-- tapOn: "Your full name"
-- inputText: "Test Tenant"
-- tapOn: "your@email.com"
-- inputText: "newuser@test.com"
-- tapOn: "At least 6 characters"
-- inputText: "123456"
+# --- Name ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Maestro Tenant"
+- tapOn:
+    id: "register-name-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "register-name-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
 
-# Select role (Tenant is default)
-- assertVisible: "Tenant"
+# --- Email (unique per run) ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "maestro-e2e-${Date.now()}@trackeeper.test"
+- tapOn:
+    id: "register-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "register-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+# --- Password ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "register-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "register-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+# Should show Tenant role info
+- assertVisible: "Registering as:"
+
+# --- Unit Number ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "B-05-10"
+- tapOn:
+    id: "register-unit-number-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "register-unit-number-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
 
 # Submit
-- tapOn: "Create Account"
+- tapOn:
+    id: "register-submit-button"
+
+# Dismiss "Save Password?" dialog
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+# Should navigate to tenant dashboard
+- extendedWaitUntil:
+    visible: "My Requests"
+    timeout: 20000
+
+- assertVisible: "My Requests"

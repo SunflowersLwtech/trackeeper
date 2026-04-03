@@ -1,25 +1,104 @@
 appId: host.exp.Exponent
 ---
-# Test: Chat within ticket (as Manager)
-- launchApp
+# Test: Chat within request (as Manager)
+# Requires a request to exist.
+#
+# Uses simulator clipboard + native Paste workaround for iOS 26.2.
+# Requires: node scripts/maestro-input-server.js on port 4567.
 
-# Login as manager
-- tapOn: "Enter your email"
-- inputText: "manager@test.com"
-- tapOn: "Enter your password"
-- inputText: "123456"
-- tapOn: "Sign In"
+- stopApp
+- clearState
+- openLink: "exp://localhost:8083"
+
+- extendedWaitUntil:
+    visible: "TracKeeper"
+    timeout: 45000
+
+# Dismiss dev menu overlay if present
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- waitForAnimationToEnd
+
+# --- Login as manager ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "testmanager@trackeeper.test"
+- tapOn:
+    id: "login-email-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-email-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Test123456"
+- tapOn:
+    id: "login-password-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "login-password-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "login-submit-button"
+
+# Dismiss "Save Password?" dialog
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 20000
 - assertVisible: "Dashboard"
 
-# Open a ticket
-- tapOn: "Leaking pipe in kitchen"
-- assertVisible: "Messages"
-
-# Send a message
-- tapOn: "Type a message..."
-- inputText: "I will send a plumber tomorrow"
+# Open a request
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
 - tapOn:
-    id: "send-button"
+    id: "request-card-Kitchen faucet leaking badly"
+- assertVisible: "Manage Request"
+
+# Switch to Messages tab
+- tapOn:
+    id: "manager-messages-tab"
+- waitForAnimationToEnd
+
+# --- Send a message ---
+- runScript:
+    file: set-clipboard.js
+    env:
+      CLIPBOARD_TEXT: "Maintainer will arrive at 3 PM today"
+- tapOn:
+    id: "chat-message-input"
+- waitForAnimationToEnd
+- longPressOn:
+    id: "chat-message-input"
+- tapOn: "Paste"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow Paste"
+    optional: true
+
+- tapOn:
+    id: "chat-send-button"
 
 # Message should appear
-- assertVisible: "I will send a plumber tomorrow"
+- extendedWaitUntil:
+    visible: "Maintainer will arrive at 3 PM today"
+    timeout: 10000
