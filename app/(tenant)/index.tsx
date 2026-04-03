@@ -6,10 +6,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenantRequests } from "@/hooks/useRequests";
 import { RequestCard } from "@/components/request/RequestCard";
 import { TouchableOpacity } from "react-native";
+import { WebContainer } from "@/components/ui/WebContainer";
+import { ListFooter } from "@/components/ui/ListFooter";
 
 export default function TenantHomeScreen() {
   const { user } = useAuth();
-  const { requests, loading, error: listError, refreshing, refresh } = useTenantRequests(user?.uid);
+  const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useTenantRequests(user?.uid);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -49,6 +51,7 @@ export default function TenantHomeScreen() {
   }
 
   return (
+    <WebContainer>
     <View className="flex-1 bg-white">
       {/* Search */}
       {requests.length > 0 && (
@@ -90,11 +93,13 @@ export default function TenantHomeScreen() {
         windowSize={5}
         maxToRenderPerBatch={10}
         removeClippedSubviews
-        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
         renderItem={({ item }) => (
           <RequestCard
             request={item}
@@ -115,5 +120,6 @@ export default function TenantHomeScreen() {
         }
       />
     </View>
+    </WebContainer>
   );
 }

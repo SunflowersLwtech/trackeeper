@@ -7,9 +7,11 @@ import { StatsBar } from "@/components/request/StatsBar";
 import { FilterBar, SortOption } from "@/components/request/FilterBar";
 import { RequestStatus, RequestCategory } from "@/types";
 import { getPriorityWeight } from "@/utils/priority";
+import { WebContainer } from "@/components/ui/WebContainer";
+import { ListFooter } from "@/components/ui/ListFooter";
 
 export default function ManagerDashboardScreen() {
-  const { requests, loading, error: listError, refreshing, refresh } = useAllRequests();
+  const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useAllRequests();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<RequestCategory | "all">("all");
@@ -81,6 +83,7 @@ export default function ManagerDashboardScreen() {
   }
 
   return (
+    <WebContainer>
     <View className="flex-1 bg-white">
       <StatsBar requests={requests} />
 
@@ -102,11 +105,13 @@ export default function ManagerDashboardScreen() {
         windowSize={5}
         maxToRenderPerBatch={10}
         removeClippedSubviews
-        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
         renderItem={({ item }) => (
           <RequestCard
             request={item}
@@ -122,5 +127,6 @@ export default function ManagerDashboardScreen() {
         }
       />
     </View>
+    </WebContainer>
   );
 }

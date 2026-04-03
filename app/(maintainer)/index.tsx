@@ -15,6 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
 import { RequestCard } from "@/components/request/RequestCard";
 import { RequestStatus } from "@/types";
+import { WebContainer } from "@/components/ui/WebContainer";
+import { ListFooter } from "@/components/ui/ListFooter";
 
 const STATUS_CHIPS: { label: string; value: RequestStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -26,7 +28,7 @@ const STATUS_CHIPS: { label: string; value: RequestStatus | "all" }[] = [
 
 export default function MaintainerTasksScreen() {
   const { user } = useAuth();
-  const { requests, loading, error: listError, refreshing, refresh } = useMaintainerRequests(user?.uid);
+  const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useMaintainerRequests(user?.uid);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
 
@@ -78,6 +80,7 @@ export default function MaintainerTasksScreen() {
   }
 
   return (
+    <WebContainer>
     <View className="flex-1 bg-white">
       {/* Search */}
       <View className="px-4 pt-3 pb-2">
@@ -149,11 +152,13 @@ export default function MaintainerTasksScreen() {
         windowSize={5}
         maxToRenderPerBatch={10}
         removeClippedSubviews
-        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
         renderItem={({ item }) => (
           <RequestCard
             request={item}
@@ -169,5 +174,6 @@ export default function MaintainerTasksScreen() {
         }
       />
     </View>
+    </WebContainer>
   );
 }

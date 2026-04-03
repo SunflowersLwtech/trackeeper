@@ -22,8 +22,8 @@ describe("useTenantRequests", () => {
 
   it("sets requests and loading=false on callback", () => {
     const reqs = [{ id: "r1", title: "A" }];
-    mockTenantSub.mockImplementation((_id: string, callback: (data: unknown[]) => void) => {
-      callback(reqs);
+    mockTenantSub.mockImplementation((_id: string, callback: (data: unknown[], lastDoc: unknown) => void) => {
+      callback(reqs, null);
       return jest.fn();
     });
 
@@ -82,8 +82,8 @@ describe("useAllRequests", () => {
 
   it("sets requests on callback", () => {
     const reqs = [{ id: "r1" }, { id: "r2" }];
-    mockAllSub.mockImplementation((callback: (data: unknown[]) => void) => {
-      callback(reqs);
+    mockAllSub.mockImplementation((callback: (data: unknown[], lastDoc: unknown) => void) => {
+      callback(reqs, null);
       return jest.fn();
     });
 

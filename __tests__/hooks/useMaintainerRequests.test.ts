@@ -27,7 +27,7 @@ describe("useMaintainerRequests", () => {
   it("updates with request data", () => {
     const mockUnsub = jest.fn();
     mockSubscribe.mockImplementation((id, cb) => {
-      cb([{ id: "r1", title: "Fix pipe", status: "assigned" } as MaintenanceRequest]);
+      cb([{ id: "r1", title: "Fix pipe", status: "assigned" } as MaintenanceRequest], null);
       return mockUnsub;
     });
     const { result } = renderHook(() => useMaintainerRequests("maint-1"));

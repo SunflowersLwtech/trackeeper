@@ -7,11 +7,15 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  getDocs,
   onSnapshot,
   serverTimestamp,
   arrayUnion,
   Timestamp,
   Unsubscribe,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import {
   ref,
@@ -255,19 +259,25 @@ export async function completeRequest(
   });
 }
 
-const REQUESTS_PAGE_SIZE = 100;
+export const PAGE_SIZE = 20;
 
-/** Subscribe to real-time updates for a tenant's requests. Returns unsubscribe function. */
+export interface PaginatedResult {
+  requests: MaintenanceRequest[];
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+}
+
+/** Subscribe to first page of tenant's requests (real-time). */
 export function subscribeToTenantRequests(
   tenantId: string,
-  callback: (requests: MaintenanceRequest[]) => void,
+  callback: (requests: MaintenanceRequest[], lastDoc: QueryDocumentSnapshot<DocumentData> | null) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, REQUESTS_COLLECTION),
     where("tenantId", "==", tenantId),
     orderBy("createdAt", "desc"),
-    limit(REQUESTS_PAGE_SIZE),
+    limit(PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -277,23 +287,45 @@ export function subscribeToTenantRequests(
         id: d.id,
         ...d.data(),
       })) as MaintenanceRequest[];
-      callback(requests);
+      const last = snapshot.docs[snapshot.docs.length - 1] ?? null;
+      callback(requests, last);
     },
     (error) => onError?.(error),
   );
 }
 
-/** Subscribe to real-time updates for a maintainer's assigned requests. Returns unsubscribe function. */
+/** Load next page of tenant's requests. */
+export async function loadMoreTenantRequests(
+  tenantId: string,
+  afterDoc: QueryDocumentSnapshot<DocumentData>,
+): Promise<PaginatedResult> {
+  const q = query(
+    collection(db, REQUESTS_COLLECTION),
+    where("tenantId", "==", tenantId),
+    orderBy("createdAt", "desc"),
+    startAfter(afterDoc),
+    limit(PAGE_SIZE),
+  );
+  const snapshot = await getDocs(q);
+  const requests = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as MaintenanceRequest[];
+  return {
+    requests,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
+    hasMore: snapshot.docs.length === PAGE_SIZE,
+  };
+}
+
+/** Subscribe to first page of maintainer's requests (real-time). */
 export function subscribeToMaintainerRequests(
   maintainerId: string,
-  callback: (requests: MaintenanceRequest[]) => void,
+  callback: (requests: MaintenanceRequest[], lastDoc: QueryDocumentSnapshot<DocumentData> | null) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, REQUESTS_COLLECTION),
     where("assignedTo", "==", maintainerId),
     orderBy("createdAt", "desc"),
-    limit(REQUESTS_PAGE_SIZE),
+    limit(PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -303,21 +335,43 @@ export function subscribeToMaintainerRequests(
         id: d.id,
         ...d.data(),
       })) as MaintenanceRequest[];
-      callback(requests);
+      const last = snapshot.docs[snapshot.docs.length - 1] ?? null;
+      callback(requests, last);
     },
     (error) => onError?.(error),
   );
 }
 
-/** Subscribe to real-time updates for all requests (manager dashboard). Returns unsubscribe function. */
+/** Load next page of maintainer's requests. */
+export async function loadMoreMaintainerRequests(
+  maintainerId: string,
+  afterDoc: QueryDocumentSnapshot<DocumentData>,
+): Promise<PaginatedResult> {
+  const q = query(
+    collection(db, REQUESTS_COLLECTION),
+    where("assignedTo", "==", maintainerId),
+    orderBy("createdAt", "desc"),
+    startAfter(afterDoc),
+    limit(PAGE_SIZE),
+  );
+  const snapshot = await getDocs(q);
+  const requests = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as MaintenanceRequest[];
+  return {
+    requests,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
+    hasMore: snapshot.docs.length === PAGE_SIZE,
+  };
+}
+
+/** Subscribe to first page of all requests (real-time, manager dashboard). */
 export function subscribeToAllRequests(
-  callback: (requests: MaintenanceRequest[]) => void,
+  callback: (requests: MaintenanceRequest[], lastDoc: QueryDocumentSnapshot<DocumentData> | null) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, REQUESTS_COLLECTION),
     orderBy("createdAt", "desc"),
-    limit(REQUESTS_PAGE_SIZE),
+    limit(PAGE_SIZE),
   );
 
   return onSnapshot(
@@ -327,10 +381,30 @@ export function subscribeToAllRequests(
         id: d.id,
         ...d.data(),
       })) as MaintenanceRequest[];
-      callback(requests);
+      const last = snapshot.docs[snapshot.docs.length - 1] ?? null;
+      callback(requests, last);
     },
     (error) => onError?.(error),
   );
+}
+
+/** Load next page of all requests. */
+export async function loadMoreAllRequests(
+  afterDoc: QueryDocumentSnapshot<DocumentData>,
+): Promise<PaginatedResult> {
+  const q = query(
+    collection(db, REQUESTS_COLLECTION),
+    orderBy("createdAt", "desc"),
+    startAfter(afterDoc),
+    limit(PAGE_SIZE),
+  );
+  const snapshot = await getDocs(q);
+  const requests = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as MaintenanceRequest[];
+  return {
+    requests,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
+    hasMore: snapshot.docs.length === PAGE_SIZE,
+  };
 }
 
 /** Subscribe to real-time updates for a single request. Returns unsubscribe function. */

@@ -228,11 +228,10 @@ describe("subscribeToTenantRequests", () => {
   });
 
   it("passes snapshot data to callback", () => {
+    const mockDoc = { id: "r1", data: () => ({ title: "Test", status: "submitted" }) };
     mockOnSnapshot.mockImplementation((_q: unknown, cb: (snap: unknown) => void) => {
       cb({
-        docs: [
-          { id: "r1", data: () => ({ title: "Test", status: "submitted" }) },
-        ],
+        docs: [mockDoc],
       });
       return jest.fn();
     });
@@ -240,9 +239,10 @@ describe("subscribeToTenantRequests", () => {
     const callback = jest.fn();
     subscribeToTenantRequests("user-1", callback);
 
-    expect(callback).toHaveBeenCalledWith([
-      { id: "r1", title: "Test", status: "submitted" },
-    ]);
+    expect(callback).toHaveBeenCalledWith(
+      [{ id: "r1", title: "Test", status: "submitted" }],
+      mockDoc,
+    );
   });
 
   it("calls onError for errors", () => {
@@ -273,12 +273,11 @@ describe("subscribeToAllRequests", () => {
   });
 
   it("passes snapshot data to callback", () => {
+    const mockDoc1 = { id: "r1", data: () => ({ title: "A" }) };
+    const mockDoc2 = { id: "r2", data: () => ({ title: "B" }) };
     mockOnSnapshot.mockImplementation((_q: unknown, cb: (snap: unknown) => void) => {
       cb({
-        docs: [
-          { id: "r1", data: () => ({ title: "A" }) },
-          { id: "r2", data: () => ({ title: "B" }) },
-        ],
+        docs: [mockDoc1, mockDoc2],
       });
       return jest.fn();
     });
@@ -286,10 +285,10 @@ describe("subscribeToAllRequests", () => {
     const callback = jest.fn();
     subscribeToAllRequests(callback);
 
-    expect(callback).toHaveBeenCalledWith([
-      { id: "r1", title: "A" },
-      { id: "r2", title: "B" },
-    ]);
+    expect(callback).toHaveBeenCalledWith(
+      [{ id: "r1", title: "A" }, { id: "r2", title: "B" }],
+      mockDoc2,
+    );
   });
 });
 
