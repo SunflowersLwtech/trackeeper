@@ -33,14 +33,21 @@ service cloud.firestore {
       // (needed for maintainer list, sender names in chat)
       allow read: if isAuthenticated();
 
-      // Create: ONLY tenant role via public self-registration
-      // Manager/maintainer profiles must be provisioned via Cloud Functions or Admin SDK
-      allow create: if isOwner(userId)
+      // Create: tenant self-registration OR manager provisioning staff accounts
+      allow create: if (
+        // Self-registration: tenant only
+        (isOwner(userId)
+          && request.resource.data.uid == userId
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.role == "tenant")
+        ||
+        // Manager provisioning: can create maintainer or manager profiles
+        (getUserRole() == "manager"
+          && request.resource.data.uid == userId
+          && request.resource.data.role in ["maintainer", "manager"])
+      )
         && request.resource.data.keys().hasAll(["uid", "email", "name", "role"])
         && request.resource.data.keys().hasOnly(["uid", "email", "name", "role", "phone", "unitNumber"])
-        && request.resource.data.uid == userId
-        && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role == "tenant"
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 2;
 

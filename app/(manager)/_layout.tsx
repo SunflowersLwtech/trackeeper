@@ -28,6 +28,15 @@ export default function ManagerLayout() {
         }}
       />
       <Tabs.Screen
+        name="users"
+        options={{
+          title: "Staff",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
