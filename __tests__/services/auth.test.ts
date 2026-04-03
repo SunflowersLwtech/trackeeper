@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  deleteUser,
 } from "firebase/auth";
 import { setDoc, getDoc } from "firebase/firestore";
 
@@ -11,6 +12,7 @@ jest.mock("firebase/auth", () => ({
   createUserWithEmailAndPassword: jest.fn(),
   signOut: jest.fn().mockResolvedValue(undefined),
   onAuthStateChanged: jest.fn(() => jest.fn()),
+  deleteUser: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("firebase/firestore", () => ({
@@ -74,15 +76,25 @@ describe("signUp", () => {
     });
   });
 
+  it("deletes Auth account if Firestore profile write fails", async () => {
+    const mockUser = { uid: "orphan-uid" };
+    mockCreateUser.mockResolvedValue({ user: mockUser });
+    mockSetDoc.mockRejectedValueOnce(new Error("PERMISSION_DENIED"));
+    const mockDeleteUser = deleteUser as jest.Mock;
+
+    await expect(signUp("t@test.com", "pass123", "Test", "tenant")).rejects.toThrow("PERMISSION_DENIED");
+    expect(mockDeleteUser).toHaveBeenCalledWith(mockUser);
+  });
+
   it("sets unitNumber to undefined when empty", async () => {
     mockCreateUser.mockResolvedValue({ user: { uid: "new-uid" } });
 
-    const result = await signUp("m@test.com", "pass123", "Manager", "manager", "");
+    const result = await signUp("t@test.com", "pass123", "Tenant", "tenant", "");
 
     expect(result.unitNumber).toBeUndefined();
     expect(mockSetDoc).toHaveBeenCalledWith(
       "mock-doc-ref",
-      expect.objectContaining({ unitNumber: undefined }),
+      expect.objectContaining({ role: "tenant", unitNumber: undefined }),
     );
   });
 });

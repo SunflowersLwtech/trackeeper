@@ -3,7 +3,6 @@ import {
   validateEmail,
   validatePassword,
   validateName,
-  validateInviteCode,
 } from "@/utils/validation";
 
 describe("validation utils", () => {
@@ -162,33 +161,5 @@ describe("validation utils", () => {
     });
   });
 
-  describe("validateInviteCode", () => {
-    it("returns null for tenant (no code needed)", () => {
-      expect(validateInviteCode("", "tenant")).toBeNull();
-    });
-
-    it("returns null for valid code with manager role", () => {
-      expect(validateInviteCode("TRACKEEPER2026", "manager")).toBeNull();
-    });
-
-    it("returns null for valid code with maintainer role", () => {
-      expect(validateInviteCode("TRACKEEPER2026", "maintainer")).toBeNull();
-    });
-
-    it("rejects empty code for manager", () => {
-      expect(validateInviteCode("", "manager")).toBe("Invite code is required for this role");
-    });
-
-    it("rejects empty code for maintainer", () => {
-      expect(validateInviteCode("", "maintainer")).toBe("Invite code is required for this role");
-    });
-
-    it("rejects wrong code for manager", () => {
-      expect(validateInviteCode("WRONG", "manager")).toBe("Invalid invite code");
-    });
-
-    it("rejects wrong code for maintainer", () => {
-      expect(validateInviteCode("WRONG", "maintainer")).toBe("Invalid invite code");
-    });
-  });
+  // Invite code validation removed: tenant-only public registration enforced server-side
 });

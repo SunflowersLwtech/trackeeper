@@ -25,8 +25,8 @@
 | S07 | Create request | Tenant: fill form + photo → Submit | Success alert, navigate back |
 | S08 | Real-time creation | After S07, check Manager Dashboard | New ticket appears < 500ms, no refresh |
 | S09 | Status → Assigned | Manager: tap ticket → "Mark as Assigned" | Tenant: status badge turns blue |
-| S10 | Status → In Progress | Manager: "Mark as In Progress" | Tenant: badge turns amber |
-| S11 | Status → Completed | Manager: "Mark as Completed" | Tenant: badge turns green, shows "✓ Completed" |
+| S10 | Status → In Progress | Maintainer: open assigned ticket → "Mark as In Progress" | Tenant: badge turns amber |
+| S11 | Status → Completed | Maintainer: open in-progress ticket → "Mark as Completed" | Tenant: badge turns green, shows "✓ Completed" |
 | S12 | No backward transition | Check completed ticket detail | No status change buttons visible |
 | S13 | Empty form submit | Tenant: submit empty form | Validation error alert |
 | S14 | Filter tickets | Manager: tap filter chips | List updates to show only matching status |
