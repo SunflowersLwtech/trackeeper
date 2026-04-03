@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { MaintenanceRequest } from "@/types";
 import { getStatusColor, getStatusLabel, STATUS_ORDER } from "@/utils/status";
 
@@ -18,9 +18,14 @@ export function StatsBar({ requests }: StatsBarProps) {
   );
 
   return (
-    <View className="flex-row px-4 py-3" style={{ backgroundColor: "#f9fafb" }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10 }}
+      style={{ backgroundColor: "#f9fafb" }}
+    >
       {allStatuses.map((status) => (
-        <View key={status} className="flex-1 items-center">
+        <View key={status} style={{ alignItems: "center", minWidth: 64, marginHorizontal: 4 }}>
           <Text className="text-lg font-bold" style={{ color: getStatusColor(status) }}>
             {counts[status]}
           </Text>
@@ -29,12 +34,12 @@ export function StatsBar({ requests }: StatsBarProps) {
           </Text>
         </View>
       ))}
-      <View className="flex-1 items-center">
+      <View style={{ alignItems: "center", minWidth: 64, marginHorizontal: 4 }}>
         <Text className="text-lg font-bold" style={{ color: "#111827" }}>
           {requests.length}
         </Text>
         <Text className="text-xs" style={{ color: "#6b7280" }}>Total</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
