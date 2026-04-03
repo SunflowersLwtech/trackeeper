@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   TextInput,
@@ -29,6 +28,7 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { ChatView } from "@/components/chat/ChatView";
 import { RatingStars } from "@/components/request/RatingStars";
 import { User } from "@/types";
+import { confirmAction } from "@/utils/confirm";
 
 export default function ManagerRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,46 +83,34 @@ export default function ManagerRequestDetailScreen() {
 
   const handlePutOnHold = () => {
     if (!request || !id || !user) return;
-    Alert.alert("Put On Hold", "Put this request on hold?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Confirm",
-        onPress: async () => {
-          setUpdating(true);
-          try {
-            await putOnHold(id, request.status, user.uid, user.name, "manager");
-            showSuccess("Request put on hold");
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed";
-            showError("Error", message);
-          } finally {
-            setUpdating(false);
-          }
-        },
-      },
-    ]);
+    confirmAction("Put On Hold", "Put this request on hold?", async () => {
+      setUpdating(true);
+      try {
+        await putOnHold(id, request.status, user.uid, user.name, "manager");
+        showSuccess("Request put on hold");
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed";
+        showError("Error", message);
+      } finally {
+        setUpdating(false);
+      }
+    });
   };
 
   const handleResume = () => {
     if (!request || !id || !user) return;
-    Alert.alert("Resume Request", "Resume this request?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Confirm",
-        onPress: async () => {
-          setUpdating(true);
-          try {
-            await resumeRequest(id, "assigned", user.uid, user.name, "manager");
-            showSuccess("Request resumed");
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed";
-            showError("Error", message);
-          } finally {
-            setUpdating(false);
-          }
-        },
-      },
-    ]);
+    confirmAction("Resume Request", "Resume this request?", async () => {
+      setUpdating(true);
+      try {
+        await resumeRequest(id, "assigned", user.uid, user.name, "manager");
+        showSuccess("Request resumed");
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed";
+        showError("Error", message);
+      } finally {
+        setUpdating(false);
+      }
+    });
   };
 
   const handleSend = async (text: string) => {

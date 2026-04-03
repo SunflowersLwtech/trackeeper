@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +17,7 @@ import { createRequest } from "@/services/requests";
 import { RequestCategory, RequestPriority } from "@/types";
 import { validateRequestForm } from "@/utils/validation";
 import { showSuccess, showError } from "@/utils/toast";
+import { alertMessage } from "@/utils/confirm";
 import { getPriorityColor } from "@/utils/priority";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
@@ -51,7 +51,7 @@ export default function CreateRequestScreen() {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Camera access is required to take photos.");
+      alertMessage("Permission needed", "Camera access is required to take photos.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -86,6 +86,13 @@ export default function CreateRequestScreen() {
         tenantName: user.name,
         imageUri: imageUri ?? undefined,
       });
+      // Reset form state before navigating back so re-opening the screen is clean
+      setTitle("");
+      setDescription("");
+      setCategory("");
+      setPriority("medium");
+      setImageUri(null);
+      setFieldErrors({});
       showSuccess("Your request has been submitted!");
       router.back();
     } catch (error: unknown) {

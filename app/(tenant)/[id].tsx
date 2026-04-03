@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +19,7 @@ import { sendMessage } from "@/services/messages";
 import { cancelRequest, rateRequest } from "@/services/requests";
 import { canCancel } from "@/utils/status";
 import { showSuccess, showError } from "@/utils/toast";
+import { confirmAction } from "@/utils/confirm";
 import { StatusTimeline } from "@/components/request/StatusTimeline";
 import { StatusHistory } from "@/components/request/StatusHistory";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
@@ -48,28 +48,22 @@ export default function TenantRequestDetailScreen() {
 
   const handleCancel = () => {
     if (!request || !id || !user) return;
-    Alert.alert(
+    confirmAction(
       "Cancel Request",
       "Are you sure you want to cancel this request? This cannot be undone.",
-      [
-        { text: "Keep", style: "cancel" },
-        {
-          text: "Cancel Request",
-          style: "destructive",
-          onPress: async () => {
-            setCancelling(true);
-            try {
-              await cancelRequest(id, request.status, user.uid, user.name);
-              showSuccess("Request cancelled");
-            } catch (error: unknown) {
-              const message = error instanceof Error ? error.message : "Failed to cancel";
-              showError("Error", message);
-            } finally {
-              setCancelling(false);
-            }
-          },
-        },
-      ],
+      async () => {
+        setCancelling(true);
+        try {
+          await cancelRequest(id, request.status, user.uid, user.name);
+          showSuccess("Request cancelled");
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to cancel";
+          showError("Error", message);
+        } finally {
+          setCancelling(false);
+        }
+      },
+      { destructive: true },
     );
   };
 

@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -24,6 +23,7 @@ import { ChatView } from "@/components/chat/ChatView";
 import { RatingStars } from "@/components/request/RatingStars";
 import { getStatusColor } from "@/utils/status";
 import { RequestStatus } from "@/types";
+import { confirmAction } from "@/utils/confirm";
 
 export default function MaintainerTaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,39 +35,29 @@ export default function MaintainerTaskDetailScreen() {
 
   const handleStatusAction = (newStatus: RequestStatus, label: string) => {
     if (!request || !id || !user) return;
-    Alert.alert(
-      "Update Status",
-      `${label}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: async () => {
-            setUpdating(true);
-            try {
-              if (newStatus === "completed") {
-                await completeRequest(id, request.status, user.uid, user.name);
-              } else {
-                await updateRequestStatus(
-                  id,
-                  request.status,
-                  newStatus,
-                  user.uid,
-                  user.name,
-                  "maintainer",
-                );
-              }
-              showSuccess(`Status updated`);
-            } catch (error: unknown) {
-              const message = error instanceof Error ? error.message : "Failed to update status";
-              showError("Error", message);
-            } finally {
-              setUpdating(false);
-            }
-          },
-        },
-      ],
-    );
+    confirmAction("Update Status", `${label}?`, async () => {
+      setUpdating(true);
+      try {
+        if (newStatus === "completed") {
+          await completeRequest(id, request.status, user.uid, user.name);
+        } else {
+          await updateRequestStatus(
+            id,
+            request.status,
+            newStatus,
+            user.uid,
+            user.name,
+            "maintainer",
+          );
+        }
+        showSuccess(`Status updated`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to update status";
+        showError("Error", message);
+      } finally {
+        setUpdating(false);
+      }
+    });
   };
 
   const handleSend = async (text: string) => {
