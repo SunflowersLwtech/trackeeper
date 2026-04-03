@@ -78,6 +78,11 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
+              accessibilityLabel="Email address"
+              accessibilityHint="Enter your email to sign in"
+              testID="login-email-input"
             />
           </View>
 
@@ -93,6 +98,11 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="off"
+              textContentType="none"
+              accessibilityLabel="Password"
+              accessibilityHint="Enter your password to sign in"
+              testID="login-password-input"
             />
           </View>
 
@@ -102,6 +112,10 @@ export default function LoginScreen() {
             style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
             onPress={handleLogin}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            accessibilityState={{ disabled: loading, busy: loading }}
+            testID="login-submit-button"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -114,6 +128,9 @@ export default function LoginScreen() {
           <TouchableOpacity
             className="items-center py-2"
             onPress={() => router.push("/(auth)/register")}
+            accessibilityRole="button"
+            accessibilityLabel="Go to sign up"
+            testID="login-signup-link"
           >
             <Text style={{ color: "#6b7280" }}>
               Don&apos;t have an account?{" "}

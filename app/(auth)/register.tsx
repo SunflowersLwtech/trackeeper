@@ -11,17 +11,15 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { signUp } from "@/services/auth";
-import { UserRole } from "@/types";
-import { validateEmail, validatePassword, validateName, validateInviteCode } from "@/utils/validation";
+// Tenant-only public registration; manager/maintainer provisioned by admin
+import { validateEmail, validatePassword, validateName } from "@/utils/validation";
 import { showError } from "@/utils/toast";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("tenant");
   const [unitNumber, setUnitNumber] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -32,12 +30,9 @@ export default function RegisterScreen() {
     const passwordError = validatePassword(password);
     if (passwordError) { showError("Error", passwordError); return; }
 
-    const inviteError = validateInviteCode(inviteCode, role);
-    if (inviteError) { showError("Error", inviteError); return; }
-
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim(), role, unitNumber.trim() || undefined);
+      await signUp(email.trim(), password, name.trim(), "tenant", unitNumber.trim() || undefined);
       // Navigation handled by AuthContext + Stack.Protected
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Registration failed";
@@ -77,6 +72,8 @@ export default function RegisterScreen() {
               placeholderTextColor="#9ca3af"
               value={name}
               onChangeText={setName}
+              accessibilityLabel="Full name"
+              testID="register-name-input"
             />
           </View>
 
@@ -93,6 +90,10 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
+              accessibilityLabel="Email address"
+              testID="register-email-input"
             />
           </View>
 
@@ -107,77 +108,40 @@ export default function RegisterScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="off"
+              textContentType="none"
+              accessibilityLabel="Password"
+              accessibilityHint="At least 6 characters"
+              testID="register-password-input"
             />
           </View>
 
-          {/* Role Toggle */}
-          <View className="mb-4">
-            <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Role</Text>
-            <View className="flex-row rounded-xl overflow-hidden border" style={{ borderColor: "#d1d5db" }}>
-              <TouchableOpacity
-                className="flex-1 py-3 items-center"
-                style={{ backgroundColor: role === "tenant" ? "#3b82f6" : "#fff" }}
-                onPress={() => setRole("tenant")}
-              >
-                <Text style={{ color: role === "tenant" ? "#fff" : "#374151", fontWeight: "600" }}>
-                  Tenant
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 py-3 items-center"
-                style={{ backgroundColor: role === "manager" ? "#3b82f6" : "#fff" }}
-                onPress={() => setRole("manager")}
-              >
-                <Text style={{ color: role === "manager" ? "#fff" : "#374151", fontWeight: "600" }}>
-                  Manager
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 py-3 items-center"
-                style={{ backgroundColor: role === "maintainer" ? "#3b82f6" : "#fff" }}
-                onPress={() => setRole("maintainer")}
-              >
-                <Text style={{ color: role === "maintainer" ? "#fff" : "#374151", fontWeight: "600" }}>
-                  Maintainer
-                </Text>
-              </TouchableOpacity>
-            </View>
+          {/* Role Info */}
+          <View className="mb-4 p-3 rounded-xl" style={{ backgroundColor: "#f9fafb" }}>
+            <Text className="text-sm font-medium" style={{ color: "#374151" }}>
+              Registering as: <Text style={{ color: "#3b82f6" }}>Tenant</Text>
+            </Text>
+            <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>
+              Manager and Maintainer accounts are provisioned by your property administrator.
+            </Text>
           </View>
 
-          {/* Invite Code (Manager/Maintainer only) */}
-          {(role === "manager" || role === "maintainer") && (
-            <View className="mb-4">
-              <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>
-                Invite Code
-              </Text>
-              <TextInput
-                className="border rounded-xl px-4 py-3 text-base"
-                style={{ borderColor: "#d1d5db", color: "#111827" }}
-                placeholder="Enter invite code"
-                placeholderTextColor="#9ca3af"
-                value={inviteCode}
-                onChangeText={setInviteCode}
-                autoCapitalize="characters"
-              />
-            </View>
-          )}
-
-          {/* Unit Number (Tenant only) */}
-          {role === "tenant" && (
-            <View className="mb-6">
-              <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>
-                Unit Number
-              </Text>
-              <TextInput
-                className="border rounded-xl px-4 py-3 text-base"
-                style={{ borderColor: "#d1d5db", color: "#111827" }}
-                placeholder="e.g. A-12-03"
-                placeholderTextColor="#9ca3af"
-                value={unitNumber}
-                onChangeText={setUnitNumber}
-              />
-            </View>
-          )}
+          {/* Unit Number */}
+          <View className="mb-6">
+            <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>
+              Unit Number
+            </Text>
+            <TextInput
+              className="border rounded-xl px-4 py-3 text-base"
+              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              placeholder="e.g. A-12-03"
+              placeholderTextColor="#9ca3af"
+              value={unitNumber}
+              onChangeText={setUnitNumber}
+              accessibilityLabel="Unit number"
+              testID="register-unit-number-input"
+            />
+          </View>
 
           {/* Register Button */}
           <TouchableOpacity
@@ -185,6 +149,10 @@ export default function RegisterScreen() {
             style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
             onPress={handleRegister}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Create account"
+            accessibilityState={{ disabled: loading, busy: loading }}
+            testID="register-submit-button"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -197,6 +165,9 @@ export default function RegisterScreen() {
           <TouchableOpacity
             className="items-center py-2"
             onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go to sign in"
+            testID="register-signin-link"
           >
             <Text style={{ color: "#6b7280" }}>
               Already have an account?{" "}

@@ -7,6 +7,7 @@ export default function AuthLayout() {
   // If already logged in, redirect to appropriate dashboard
   if (user?.role === "tenant") return <Redirect href="/(tenant)" />;
   if (user?.role === "manager") return <Redirect href="/(manager)" />;
+  if (user?.role === "maintainer") return <Redirect href="/(maintainer)" />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
