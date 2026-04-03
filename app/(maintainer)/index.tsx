@@ -16,7 +16,7 @@ import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
 import { RequestCard } from "@/components/request/RequestCard";
 import { RequestStatus } from "@/types";
 
-const STATUS_CHIPS: Array<{ label: string; value: RequestStatus | "all" }> = [
+const STATUS_CHIPS: { label: string; value: RequestStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Assigned", value: "assigned" },
   { label: "In Progress", value: "in_progress" },
@@ -26,7 +26,7 @@ const STATUS_CHIPS: Array<{ label: string; value: RequestStatus | "all" }> = [
 
 export default function MaintainerTasksScreen() {
   const { user } = useAuth();
-  const { requests, loading, refreshing, refresh } = useMaintainerRequests(user?.uid);
+  const { requests, loading, error: listError, refreshing, refresh } = useMaintainerRequests(user?.uid);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
 
@@ -59,6 +59,24 @@ export default function MaintainerTasksScreen() {
     );
   }
 
+  if (listError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <Text style={{ color: "#ef4444", fontSize: 16, fontWeight: "600" }}>Failed to load tasks</Text>
+        <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>{listError.message}</Text>
+        <TouchableOpacity
+          className="mt-4 px-6 py-3 rounded-xl"
+          style={{ backgroundColor: "#3b82f6" }}
+          onPress={refresh}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading tasks"
+        >
+          <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-white">
       {/* Search */}
@@ -75,9 +93,17 @@ export default function MaintainerTasksScreen() {
             placeholderTextColor="#9ca3af"
             value={search}
             onChangeText={setSearch}
+            accessibilityLabel="Search tasks"
+            accessibilityRole="search"
+            testID="maintainer-search-input"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
+            <TouchableOpacity
+              onPress={() => setSearch("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              testID="maintainer-search-clear"
+            >
               <Ionicons name="close-circle" size={18} color="#9ca3af" />
             </TouchableOpacity>
           )}
@@ -100,6 +126,10 @@ export default function MaintainerTasksScreen() {
                 backgroundColor: isActive ? "#3b82f6" : "#f3f4f6",
               }}
               onPress={() => setStatusFilter(chip.value)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter: ${chip.label}`}
+              accessibilityState={{ selected: isActive }}
+              testID={`maintainer-filter-${chip.value}`}
             >
               <Text
                 className="text-xs font-medium"
@@ -115,6 +145,11 @@ export default function MaintainerTasksScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        initialNumToRender={15}
+        windowSize={5}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />

@@ -76,6 +76,7 @@ export default function MaintainerProfileScreen() {
         className="rounded-xl py-4 items-center"
         style={{ backgroundColor: "#ef4444" }}
         onPress={signOut}
+        testID="profile-signout-button"
       >
         <Text className="text-white text-base font-semibold">Sign Out</Text>
       </TouchableOpacity>

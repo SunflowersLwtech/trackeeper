@@ -29,8 +29,8 @@ import { RatingStars } from "@/components/request/RatingStars";
 export default function TenantRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { request, loading } = useRequest(id);
-  const { messages, loading: messagesLoading } = useMessages(id);
+  const { request, loading, error: requestError } = useRequest(id);
+  const { messages, loading: messagesLoading, error: messagesError } = useMessages(id);
   const [cancelling, setCancelling] = useState(false);
   const [pendingRating, setPendingRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
@@ -40,8 +40,9 @@ export default function TenantRequestDetailScreen() {
     if (!id || !user) return;
     try {
       await sendMessage(id, user.uid, user.name, text);
-    } catch {
-      // Silently fail
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to send message";
+      showError("Send Failed", msg);
     }
   };
 
@@ -99,7 +100,9 @@ export default function TenantRequestDetailScreen() {
   if (!request) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: "#6b7280" }}>Request not found</Text>
+        <Text style={{ color: requestError ? "#ef4444" : "#6b7280" }}>
+          {requestError ? `Error: ${requestError.message}` : "Request not found"}
+        </Text>
       </View>
     );
   }
@@ -128,6 +131,9 @@ export default function TenantRequestDetailScreen() {
               className="flex-row items-center px-3 py-1.5 rounded-lg border"
               style={{ borderColor: "#d1d5db" }}
               onPress={() => router.push(`/(tenant)/edit/${id}`)}
+              accessibilityRole="button"
+              accessibilityLabel="Edit request"
+              testID="tenant-edit-button"
             >
               <Ionicons name="pencil-outline" size={14} color="#3b82f6" />
               <Text className="text-xs ml-1 font-medium" style={{ color: "#3b82f6" }}>Edit</Text>
@@ -181,6 +187,10 @@ export default function TenantRequestDetailScreen() {
             style={{ borderColor: "#fecaca", backgroundColor: cancelling ? "#fef2f2" : "#fff" }}
             onPress={handleCancel}
             disabled={cancelling}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel request"
+            accessibilityState={{ disabled: cancelling, busy: cancelling }}
+            testID="cancel-request-button"
           >
             {cancelling ? (
               <ActivityIndicator color="#ef4444" />
@@ -225,12 +235,19 @@ export default function TenantRequestDetailScreen() {
                       placeholderTextColor="#9ca3af"
                       value={ratingComment}
                       onChangeText={setRatingComment}
+                      accessibilityLabel="Rating comment"
+                      accessibilityHint="Optionally add a comment with your rating"
+                      testID="rating-comment-input"
                     />
                     <TouchableOpacity
                       className="rounded-xl py-2.5 items-center mt-2"
                       style={{ backgroundColor: submittingRating ? "#93c5fd" : "#3b82f6" }}
                       onPress={handleRate}
                       disabled={submittingRating}
+                      accessibilityRole="button"
+                      accessibilityLabel="Submit rating"
+                      accessibilityState={{ disabled: submittingRating, busy: submittingRating }}
+                      testID="submit-rating-button"
                     >
                       {submittingRating ? (
                         <ActivityIndicator color="#fff" size="small" />
@@ -255,6 +272,7 @@ export default function TenantRequestDetailScreen() {
           messages={messages}
           currentUserId={user?.uid ?? ""}
           loading={messagesLoading}
+          error={messagesError}
           onSend={handleSend}
         />
       </View>

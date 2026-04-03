@@ -33,10 +33,10 @@ import { User } from "@/types";
 export default function ManagerRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { request, loading } = useRequest(id);
-  const { messages, loading: messagesLoading } = useMessages(id);
-  const { notes, loading: notesLoading } = useNotes(id);
-  const { maintainers } = useMaintainers();
+  const { request, loading, error: requestError } = useRequest(id);
+  const { messages, loading: messagesLoading, error: messagesError } = useMessages(id);
+  const { notes, loading: notesLoading, error: notesError } = useNotes(id);
+  const { maintainers, loading: maintainersLoading, error: maintainersError } = useMaintainers();
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<"messages" | "notes">("messages");
   const [showAssignForm, setShowAssignForm] = useState(false);
@@ -46,7 +46,12 @@ export default function ManagerRequestDetailScreen() {
 
   const handleAddNote = useCallback(async (text: string) => {
     if (!id || !user) return;
-    await addNote(id, user.uid, user.name, text);
+    try {
+      await addNote(id, user.uid, user.name, text);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to add note";
+      showError("Error", msg);
+    }
   }, [id, user]);
 
   const handleAssign = async () => {
@@ -124,8 +129,9 @@ export default function ManagerRequestDetailScreen() {
     if (!id || !user) return;
     try {
       await sendMessage(id, user.uid, user.name, text);
-    } catch {
-      // Silently fail
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to send message";
+      showError("Send Failed", msg);
     }
   };
 
@@ -140,7 +146,9 @@ export default function ManagerRequestDetailScreen() {
   if (!request) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: "#6b7280" }}>Request not found</Text>
+        <Text style={{ color: requestError ? "#ef4444" : "#6b7280" }}>
+          {requestError ? `Error: ${requestError.message}` : "Request not found"}
+        </Text>
       </View>
     );
   }
@@ -221,6 +229,9 @@ export default function ManagerRequestDetailScreen() {
                 className="rounded-xl py-3 items-center"
                 style={{ backgroundColor: "#3b82f6" }}
                 onPress={() => setShowAssignForm(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Assign request"
+                testID="assign-request-button"
               >
                 <Text className="text-white text-sm font-semibold">Assign Request</Text>
               </TouchableOpacity>
@@ -229,7 +240,13 @@ export default function ManagerRequestDetailScreen() {
                 <Text className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>
                   Select Maintainer
                 </Text>
-                {maintainers.length === 0 ? (
+                {maintainersLoading ? (
+                  <ActivityIndicator size="small" color="#3b82f6" style={{ marginBottom: 8 }} />
+                ) : maintainersError ? (
+                  <Text className="text-xs mb-2" style={{ color: "#ef4444" }}>
+                    Failed to load maintainers
+                  </Text>
+                ) : maintainers.length === 0 ? (
                   <Text className="text-xs mb-2" style={{ color: "#9ca3af" }}>
                     No maintainers registered yet
                   </Text>
@@ -247,6 +264,9 @@ export default function ManagerRequestDetailScreen() {
                         setSelectedMaintainer(m);
                         setAssignPhone(m.phone || "");
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select maintainer: ${m.name}`}
+                      accessibilityState={{ selected: selectedMaintainer?.uid === m.uid }}
                     >
                       <View
                         className="w-8 h-8 rounded-full items-center justify-center mr-2"
@@ -277,6 +297,8 @@ export default function ManagerRequestDetailScreen() {
                       value={assignPhone}
                       onChangeText={setAssignPhone}
                       keyboardType="phone-pad"
+                      accessibilityLabel="Maintainer phone number"
+                      testID="assign-phone-input"
                     />
                     <TextInput
                       className="border rounded-lg px-3 py-2 text-sm mb-2"
@@ -285,12 +307,18 @@ export default function ManagerRequestDetailScreen() {
                       placeholderTextColor="#9ca3af"
                       value={assignEta}
                       onChangeText={setAssignEta}
+                      accessibilityLabel="Estimated time of arrival"
+                      testID="assign-eta-input"
                     />
                     <TouchableOpacity
                       className="rounded-xl py-3 items-center"
                       style={{ backgroundColor: updating ? "#93c5fd" : "#3b82f6" }}
                       onPress={handleAssign}
                       disabled={updating}
+                      accessibilityRole="button"
+                      accessibilityLabel="Confirm assignment"
+                      accessibilityState={{ disabled: updating, busy: updating }}
+                      testID="confirm-assignment-button"
                     >
                       {updating ? (
                         <ActivityIndicator color="#fff" />
@@ -308,6 +336,9 @@ export default function ManagerRequestDetailScreen() {
                     setShowAssignForm(false);
                     setSelectedMaintainer(null);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel assignment"
+                  testID="cancel-assignment-button"
                 >
                   <Text className="text-sm" style={{ color: "#6b7280" }}>Cancel</Text>
                 </TouchableOpacity>
@@ -323,6 +354,10 @@ export default function ManagerRequestDetailScreen() {
             style={{ borderColor: "#c4b5fd", backgroundColor: updating ? "#f5f3ff" : "#fff" }}
             onPress={handlePutOnHold}
             disabled={updating}
+            accessibilityRole="button"
+            accessibilityLabel="Put on hold"
+            accessibilityState={{ disabled: updating, busy: updating }}
+            testID="put-on-hold-button"
           >
             {updating ? (
               <ActivityIndicator color="#8b5cf6" />
@@ -340,6 +375,10 @@ export default function ManagerRequestDetailScreen() {
             style={{ backgroundColor: updating ? "#d1d5db" : "#3b82f6" }}
             onPress={handleResume}
             disabled={updating}
+            accessibilityRole="button"
+            accessibilityLabel="Resume request"
+            accessibilityState={{ disabled: updating, busy: updating }}
+            testID="resume-request-button"
           >
             {updating ? (
               <ActivityIndicator color="#fff" />
@@ -384,6 +423,10 @@ export default function ManagerRequestDetailScreen() {
               borderBottomColor: activeTab === "messages" ? "#3b82f6" : "transparent",
             }}
             onPress={() => setActiveTab("messages")}
+            accessibilityRole="button"
+            accessibilityLabel="Messages tab"
+            accessibilityState={{ selected: activeTab === "messages" }}
+            testID="manager-messages-tab"
           >
             <Text
               className="text-sm font-medium"
@@ -399,6 +442,10 @@ export default function ManagerRequestDetailScreen() {
               borderBottomColor: activeTab === "notes" ? "#f59e0b" : "transparent",
             }}
             onPress={() => setActiveTab("notes")}
+            accessibilityRole="button"
+            accessibilityLabel={`Notes tab, ${notes.length} notes`}
+            accessibilityState={{ selected: activeTab === "notes" }}
+            testID="manager-notes-tab"
           >
             <Text
               className="text-sm font-medium"
@@ -414,12 +461,13 @@ export default function ManagerRequestDetailScreen() {
             messages={messages}
             currentUserId={user?.uid ?? ""}
             loading={messagesLoading}
+            error={messagesError}
             onSend={handleSend}
           />
         ) : (
           <View className="flex-1">
             <ScrollView className="flex-1 px-3 pt-2">
-              <NotesList notes={notes} loading={notesLoading} />
+              <NotesList notes={notes} loading={notesLoading} error={notesError} />
             </ScrollView>
             <NoteInput onSubmit={handleAddNote} />
           </View>

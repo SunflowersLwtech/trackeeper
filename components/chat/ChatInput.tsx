@@ -34,12 +34,19 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         onChangeText={setText}
         multiline
         editable={!disabled}
+        accessibilityLabel="Message input"
+        accessibilityHint="Type a message to send"
+        testID="chat-message-input"
       />
       <TouchableOpacity
         className="w-10 h-10 rounded-full items-center justify-center"
         style={{ backgroundColor: text.trim() ? "#3b82f6" : "#d1d5db" }}
         onPress={handleSend}
         disabled={!text.trim() || disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Send message"
+        accessibilityState={{ disabled: !text.trim() || disabled }}
+        testID="chat-send-button"
       >
         <Text className="text-white font-bold text-base">↑</Text>
       </TouchableOpacity>

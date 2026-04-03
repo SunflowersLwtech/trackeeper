@@ -18,7 +18,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { getPriorityColor } from "@/utils/priority";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
-const PRIORITIES: Array<{ value: RequestPriority; label: string }> = [
+const PRIORITIES: { value: RequestPriority; label: string }[] = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
@@ -99,6 +99,7 @@ export default function EditRequestScreen() {
             style={{ borderColor: "#d1d5db", color: "#111827" }}
             value={title}
             onChangeText={setTitle}
+            testID="edit-request-title-input"
           />
         </View>
 
@@ -115,6 +116,7 @@ export default function EditRequestScreen() {
                   backgroundColor: category === cat ? "#eff6ff" : "#fff",
                 }}
                 onPress={() => setCategory(cat)}
+                testID={`edit-request-category-${cat.toLowerCase()}`}
               >
                 <Text
                   className="text-sm"
@@ -143,6 +145,7 @@ export default function EditRequestScreen() {
                     backgroundColor: selected ? color + "15" : "#fff",
                   }}
                   onPress={() => setPriority(p.value)}
+                  testID={`edit-request-priority-${p.value}`}
                 >
                   <View
                     className="w-2.5 h-2.5 rounded-full mr-2"
@@ -172,6 +175,7 @@ export default function EditRequestScreen() {
             onChangeText={setDescription}
             multiline
             numberOfLines={5}
+            testID="edit-request-description-input"
           />
         </View>
 
@@ -181,6 +185,7 @@ export default function EditRequestScreen() {
           style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
           onPress={handleSave}
           disabled={loading}
+          testID="edit-request-save-button"
         >
           {loading ? (
             <ActivityIndicator color="#fff" />

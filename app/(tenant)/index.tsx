@@ -9,7 +9,7 @@ import { TouchableOpacity } from "react-native";
 
 export default function TenantHomeScreen() {
   const { user } = useAuth();
-  const { requests, loading, refreshing, refresh } = useTenantRequests(user?.uid);
+  const { requests, loading, error: listError, refreshing, refresh } = useTenantRequests(user?.uid);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -26,6 +26,24 @@ export default function TenantHomeScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  if (listError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <Text style={{ color: "#ef4444", fontSize: 16, fontWeight: "600" }}>Failed to load requests</Text>
+        <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>{listError.message}</Text>
+        <TouchableOpacity
+          className="mt-4 px-6 py-3 rounded-xl"
+          style={{ backgroundColor: "#3b82f6" }}
+          onPress={refresh}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading requests"
+        >
+          <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -47,9 +65,17 @@ export default function TenantHomeScreen() {
               placeholderTextColor="#9ca3af"
               value={search}
               onChangeText={setSearch}
+              accessibilityLabel="Search my requests"
+              accessibilityRole="search"
+              testID="tenant-search-input"
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch("")}>
+              <TouchableOpacity
+                onPress={() => setSearch("")}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                testID="tenant-search-clear"
+              >
                 <Ionicons name="close-circle" size={18} color="#9ca3af" />
               </TouchableOpacity>
             )}
@@ -60,6 +86,11 @@ export default function TenantHomeScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        initialNumToRender={15}
+        windowSize={5}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />

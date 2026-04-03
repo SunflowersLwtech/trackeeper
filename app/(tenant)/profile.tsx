@@ -69,6 +69,7 @@ export default function TenantProfileScreen() {
               onChangeText={setName}
               placeholder="Name"
               placeholderTextColor="#9ca3af"
+              testID="profile-name-input"
             />
             <TextInput
               className="border rounded-xl px-4 py-3 text-base mb-3"
@@ -77,6 +78,7 @@ export default function TenantProfileScreen() {
               onChangeText={setUnitNumber}
               placeholder="Unit Number"
               placeholderTextColor="#9ca3af"
+              testID="profile-unit-input"
             />
           </View>
         )}
@@ -108,6 +110,7 @@ export default function TenantProfileScreen() {
             className="flex-1 rounded-xl py-3 items-center mr-2 border"
             style={{ borderColor: "#d1d5db" }}
             onPress={() => setEditing(false)}
+            testID="profile-cancel-button"
           >
             <Text className="text-sm font-semibold" style={{ color: "#6b7280" }}>Cancel</Text>
           </TouchableOpacity>
@@ -116,6 +119,7 @@ export default function TenantProfileScreen() {
             style={{ backgroundColor: saving ? "#93c5fd" : "#3b82f6" }}
             onPress={handleSave}
             disabled={saving}
+            testID="profile-save-button"
           >
             {saving ? (
               <ActivityIndicator color="#fff" size="small" />
@@ -129,6 +133,7 @@ export default function TenantProfileScreen() {
           className="rounded-xl py-3 items-center mb-3 border"
           style={{ borderColor: "#d1d5db" }}
           onPress={() => setEditing(true)}
+          testID="profile-edit-button"
         >
           <Text className="text-sm font-semibold" style={{ color: "#374151" }}>Edit Profile</Text>
         </TouchableOpacity>
@@ -139,6 +144,7 @@ export default function TenantProfileScreen() {
         className="rounded-xl py-4 items-center"
         style={{ backgroundColor: "#ef4444" }}
         onPress={signOut}
+        testID="profile-signout-button"
       >
         <Text className="text-white text-base font-semibold">Sign Out</Text>
       </TouchableOpacity>

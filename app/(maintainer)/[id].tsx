@@ -15,7 +15,7 @@ import { useLocalSearchParams, Stack } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useRequest } from "@/hooks/useRequest";
 import { useMessages } from "@/hooks/useMessages";
-import { updateRequestStatus } from "@/services/requests";
+import { updateRequestStatus, completeRequest } from "@/services/requests";
 import { sendMessage } from "@/services/messages";
 import { StatusTimeline } from "@/components/request/StatusTimeline";
 import { StatusHistory } from "@/components/request/StatusHistory";
@@ -28,8 +28,8 @@ import { RequestStatus } from "@/types";
 export default function MaintainerTaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { request, loading } = useRequest(id);
-  const { messages, loading: messagesLoading } = useMessages(id);
+  const { request, loading, error: requestError } = useRequest(id);
+  const { messages, loading: messagesLoading, error: messagesError } = useMessages(id);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "messages">("details");
 
@@ -45,14 +45,18 @@ export default function MaintainerTaskDetailScreen() {
           onPress: async () => {
             setUpdating(true);
             try {
-              await updateRequestStatus(
-                id,
-                request.status,
-                newStatus,
-                user.uid,
-                user.name,
-                "maintainer",
-              );
+              if (newStatus === "completed") {
+                await completeRequest(id, request.status, user.uid, user.name);
+              } else {
+                await updateRequestStatus(
+                  id,
+                  request.status,
+                  newStatus,
+                  user.uid,
+                  user.name,
+                  "maintainer",
+                );
+              }
               showSuccess(`Status updated`);
             } catch (error: unknown) {
               const message = error instanceof Error ? error.message : "Failed to update status";
@@ -70,8 +74,9 @@ export default function MaintainerTaskDetailScreen() {
     if (!id || !user) return;
     try {
       await sendMessage(id, user.uid, user.name, text);
-    } catch {
-      // Silently fail
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to send message";
+      showError("Send Failed", msg);
     }
   };
 
@@ -86,7 +91,9 @@ export default function MaintainerTaskDetailScreen() {
   if (!request) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: "#6b7280" }}>Task not found</Text>
+        <Text style={{ color: requestError ? "#ef4444" : "#6b7280" }}>
+          {requestError ? `Error: ${requestError.message}` : "Task not found"}
+        </Text>
       </View>
     );
   }
@@ -108,6 +115,9 @@ export default function MaintainerTaskDetailScreen() {
             borderBottomColor: activeTab === "details" ? "#3b82f6" : "transparent",
           }}
           onPress={() => setActiveTab("details")}
+          accessibilityRole="button"
+          accessibilityLabel="Details tab"
+          accessibilityState={{ selected: activeTab === "details" }}
         >
           <Text
             className="text-sm font-medium"
@@ -123,6 +133,9 @@ export default function MaintainerTaskDetailScreen() {
             borderBottomColor: activeTab === "messages" ? "#3b82f6" : "transparent",
           }}
           onPress={() => setActiveTab("messages")}
+          accessibilityRole="button"
+          accessibilityLabel="Messages tab"
+          accessibilityState={{ selected: activeTab === "messages" }}
         >
           <Text
             className="text-sm font-medium"
@@ -183,6 +196,10 @@ export default function MaintainerTaskDetailScreen() {
                   style={{ backgroundColor: updating ? "#d1d5db" : getStatusColor("in_progress") }}
                   onPress={() => handleStatusAction("in_progress", "Accept this task")}
                   disabled={updating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Accept task"
+                  accessibilityState={{ disabled: updating, busy: updating }}
+                  testID="accept-task-button"
                 >
                   {updating ? (
                     <ActivityIndicator color="#fff" />
@@ -195,6 +212,10 @@ export default function MaintainerTaskDetailScreen() {
                   style={{ backgroundColor: updating ? "#d1d5db" : getStatusColor("on_hold") }}
                   onPress={() => handleStatusAction("on_hold", "Put this task on hold")}
                   disabled={updating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Put on hold"
+                  accessibilityState={{ disabled: updating, busy: updating }}
+                  testID="put-on-hold-button"
                 >
                   {updating ? (
                     <ActivityIndicator color="#fff" />
@@ -212,6 +233,10 @@ export default function MaintainerTaskDetailScreen() {
                   style={{ backgroundColor: updating ? "#d1d5db" : getStatusColor("completed") }}
                   onPress={() => handleStatusAction("completed", "Mark this task as complete")}
                   disabled={updating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark task as complete"
+                  accessibilityState={{ disabled: updating, busy: updating }}
+                  testID="mark-complete-button"
                 >
                   {updating ? (
                     <ActivityIndicator color="#fff" />
@@ -224,6 +249,10 @@ export default function MaintainerTaskDetailScreen() {
                   style={{ backgroundColor: updating ? "#d1d5db" : getStatusColor("on_hold") }}
                   onPress={() => handleStatusAction("on_hold", "Put this task on hold")}
                   disabled={updating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Put on hold"
+                  accessibilityState={{ disabled: updating, busy: updating }}
+                  testID="put-on-hold-button"
                 >
                   {updating ? (
                     <ActivityIndicator color="#fff" />
@@ -240,6 +269,10 @@ export default function MaintainerTaskDetailScreen() {
                 style={{ backgroundColor: updating ? "#d1d5db" : getStatusColor("in_progress") }}
                 onPress={() => handleStatusAction("in_progress", "Resume this task")}
                 disabled={updating}
+                accessibilityRole="button"
+                accessibilityLabel="Resume task"
+                accessibilityState={{ disabled: updating, busy: updating }}
+                testID="resume-task-button"
               >
                 {updating ? (
                   <ActivityIndicator color="#fff" />
@@ -285,6 +318,7 @@ export default function MaintainerTaskDetailScreen() {
             messages={messages}
             currentUserId={user?.uid ?? ""}
             loading={messagesLoading}
+            error={messagesError}
             onSend={handleSend}
           />
         </View>

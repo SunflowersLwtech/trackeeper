@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { useAllRequests } from "@/hooks/useRequests";
 import { RequestCard } from "@/components/request/RequestCard";
@@ -9,7 +9,7 @@ import { RequestStatus, RequestCategory } from "@/types";
 import { getPriorityWeight } from "@/utils/priority";
 
 export default function ManagerDashboardScreen() {
-  const { requests, loading, refreshing, refresh } = useAllRequests();
+  const { requests, loading, error: listError, refreshing, refresh } = useAllRequests();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<RequestCategory | "all">("all");
@@ -62,6 +62,24 @@ export default function ManagerDashboardScreen() {
     );
   }
 
+  if (listError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <Text style={{ color: "#ef4444", fontSize: 16, fontWeight: "600" }}>Failed to load requests</Text>
+        <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>{listError.message}</Text>
+        <TouchableOpacity
+          className="mt-4 px-6 py-3 rounded-xl"
+          style={{ backgroundColor: "#3b82f6" }}
+          onPress={refresh}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading requests"
+        >
+          <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-white">
       <StatsBar requests={requests} />
@@ -80,6 +98,11 @@ export default function ManagerDashboardScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        initialNumToRender={15}
+        windowSize={5}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        getItemLayout={(_, index) => ({ length: 140, offset: 140 * index, index })}
         contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
