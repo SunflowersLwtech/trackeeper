@@ -1,8 +1,9 @@
 import { renderHook } from "@testing-library/react-native/pure";
 
-const mockRegister = jest.fn(() => Promise.resolve("token"));
-const mockReceivedListener = jest.fn(() => ({ remove: jest.fn() }));
-const mockResponseListener = jest.fn(() => ({ remove: jest.fn() }));
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const mockRegister = jest.fn((() => Promise.resolve("token")) as any);
+const mockReceivedListener = jest.fn((() => ({ remove: jest.fn() })) as any);
+const mockResponseListener = jest.fn((() => ({ remove: jest.fn() })) as any);
 const mockRouterPush = jest.fn();
 
 jest.mock("@/hooks/useAuth", () => ({
@@ -10,13 +11,13 @@ jest.mock("@/hooks/useAuth", () => ({
 }));
 
 jest.mock("@/services/notifications", () => ({
-  registerForPushNotifications: (...args: unknown[]) => mockRegister(...args),
-  addNotificationReceivedListener: (...args: unknown[]) => mockReceivedListener(...args),
-  addNotificationResponseListener: (...args: unknown[]) => mockResponseListener(...args),
+  registerForPushNotifications: (...args: any[]) => mockRegister(...args),
+  addNotificationReceivedListener: (...args: any[]) => mockReceivedListener(...args),
+  addNotificationResponseListener: (...args: any[]) => mockResponseListener(...args),
 }));
 
 jest.mock("expo-router", () => ({
-  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
+  router: { push: (...args: any[]) => mockRouterPush(...args) },
 }));
 
 jest.mock("expo-notifications", () => ({
