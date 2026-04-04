@@ -32,6 +32,8 @@ This project was developed as a university graduation capstone (final-year proje
 | Dashboard filtering | Status, category, and priority filter chips with a live statistics bar |
 | Auth persistence | Sessions survive app restarts via AsyncStorage (native) / localStorage (web) |
 | Form validation | Client-side validation with inline field-level error messages |
+| Error boundaries | Global `AppErrorBoundary` catches render errors with a retry button |
+| Offline persistence | Firestore `persistentLocalCache` with `persistentMultipleTabManager` for offline data access |
 
 ## 3. Architecture
 
@@ -267,14 +269,14 @@ npx expo start --ios --port 8083
 # 2. Start the clipboard bridge server (required for iOS 26+ compatibility):
 node scripts/maestro-input-server.js &
 
-# 3. Run all five E2E flows:
+# 3. Run all ten E2E flows:
 ~/.maestro/bin/maestro test .maestro/
 
 # 4. Run a single flow:
 ~/.maestro/bin/maestro test .maestro/01_auth_login.yaml
 ```
 
-The five Maestro flows cover: tenant login, tenant registration, request creation, manager assignment, and in-request chat.
+The ten Maestro flows cover: tenant login, tenant registration, request creation, manager assignment, in-request chat, maintainer accept/complete, put-on-hold/resume, form validation, tenant cancellation, and manager staff creation.
 
 > **Note:** On iOS 26.2, Maestro's `inputText` command does not trigger React Native's `onChangeText`. The flows use a clipboard-and-paste workaround via `scripts/maestro-input-server.js`, which must be running during E2E execution.
 
@@ -291,7 +293,7 @@ npx expo start --web --port 8081
 |--------|-------|
 | Unit + integration tests | 225 passed |
 | Firestore security rule tests | 65 passed |
-| E2E flows (Maestro) | 5 |
+| E2E flows (Maestro) | 10 |
 | Statement coverage | 94.62% |
 | Branch coverage | 95.91% |
 | TypeScript strict mode | Enabled |
@@ -302,7 +304,7 @@ npx expo start --web --port 8081
 
 ### 9.5 Manual Smoke Test Plan
 
-A manual smoke test plan covering 23 scenarios (authentication, request lifecycle, chat, and edge cases) is maintained in `TEST_PLAN.md`.
+A manual smoke test plan covering 50 scenarios (authentication, request lifecycle, rating, chat, manager notes, security edge cases, and edge cases) plus 3 cross-platform data chain use cases is maintained in `TEST_PLAN.md`.
 
 ## 10. Project Structure
 
@@ -315,10 +317,10 @@ project/
 │   ├── (maintainer)/        Maintainer: task list, task detail, profile
 │   └── _layout.tsx          Root layout with role-based auth routing
 ├── components/
-│   ├── chat/                ChatBubble, ChatInput, ChatView
+│   ├── chat/                ChatBubble, ChatInput, ChatView, ChatFAB
 │   ├── notes/               NoteInput, NotesList
-│   ├── request/             RequestCard, FilterBar, StatsBar, StatusTimeline, RatingStars
-│   └── ui/                  StatusBadge, PriorityBadge, LoadingScreen, EmptyState, Toast
+│   ├── request/             RequestCard, FilterToolbar, FilterSheet, StatusTimeline, RatingStars, StatusHistory
+│   └── ui/                  StatusBadge, PriorityBadge, LoadingScreen, EmptyState, Toast, BottomSheet, ConfirmModal, SkeletonCard
 ├── config/
 │   └── firebase.ts          Firebase initialisation and platform-aware auth
 ├── contexts/
@@ -334,7 +336,7 @@ project/
 ├── scripts/                 CI pipeline scripts and E2E helpers
 ├── firestore.rules          Firestore security rules
 ├── storage.rules            Firebase Storage security rules
-├── TEST_PLAN.md             Manual smoke test plan (23 scenarios)
+├── TEST_PLAN.md             Manual smoke test plan (50 scenarios + 3 cross-platform chains)
 └── LIVESPEC.md              Living specification document
 ```
 
@@ -364,10 +366,9 @@ Maintenance requests follow a well-defined lifecycle (`submitted → assigned �
 
 | Limitation | Impact | Mitigation |
 |------------|--------|------------|
-| Manager/maintainer accounts require privileged provisioning | Cannot self-register | Documented seeding procedure; production would use Cloud Functions |
+| Manager/maintainer accounts require privileged provisioning | Cannot self-register | In-app staff provisioning for managers; production would use Cloud Functions |
 | Maestro `inputText` incompatible with iOS 26.2 | E2E tests require clipboard workaround | Bridge server (`maestro-input-server.js`) automates the workaround |
-| No push notifications | Users must open the app to see updates | Real-time sync provides immediate updates once the app is open |
-| No pagination on initial load | Large datasets may load slowly | `FlatList` windowing with `getItemLayout` mitigates rendering cost |
+| Expo Go limitations | Cannot test native modules requiring custom dev client | Sufficient for the scope of this project; production builds would use EAS Build |
 
 ## 13. Licence
 
