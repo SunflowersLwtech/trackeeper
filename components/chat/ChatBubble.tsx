@@ -1,53 +1,141 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Message } from "@/types";
+import { useColors } from "@/hooks/useColors";
+import { formatTime } from "@/utils/time";
 
 interface ChatBubbleProps {
   message: Message;
   isOwn: boolean;
+  /** Whether to show the sender name (hidden for consecutive messages from same sender) */
+  showName?: boolean;
 }
 
-export const ChatBubble = React.memo(function ChatBubble({ message, isOwn }: ChatBubbleProps) {
+export const ChatBubble = React.memo(function ChatBubble({
+  message,
+  isOwn,
+  showName = true,
+}: ChatBubbleProps) {
+  const c = useColors();
   const time = message.createdAt?.toDate
     ? formatTime(message.createdAt.toDate())
     : "";
 
   return (
-    <View
-      className={`mb-2 max-w-[80%] ${isOwn ? "self-end" : "self-start"}`}
-    >
-      {!isOwn && (
-        <Text className="text-xs mb-1 ml-1" style={{ color: "#9ca3af" }}>
-          {message.senderName}
-        </Text>
+    <View style={[styles.wrapper, isOwn ? styles.wrapperOwn : styles.wrapperOther]}>
+      {/* Avatar for other's messages */}
+      {!isOwn && showName && (
+        <View style={[styles.avatar, { backgroundColor: c.primaryBadgeBg }]}>
+          <Text style={[styles.avatarText, { color: c.primary }]}>
+            {message.senderName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
       )}
-      <View
-        className="px-4 py-3 rounded-2xl"
-        style={{
-          backgroundColor: isOwn ? "#3b82f6" : "#f3f4f6",
-          borderBottomRightRadius: isOwn ? 4 : 16,
-          borderBottomLeftRadius: isOwn ? 16 : 4,
-        }}
-      >
-        <Text
-          className="text-base"
-          style={{ color: isOwn ? "#fff" : "#111827" }}
+      {!isOwn && !showName && <View style={styles.avatarSpacer} />}
+
+      <View style={[styles.bubbleColumn, isOwn ? styles.bubbleColumnOwn : styles.bubbleColumnOther]}>
+        {/* Sender name */}
+        {!isOwn && showName && (
+          <Text style={[styles.senderName, { color: c.textMuted }]}>
+            {message.senderName}
+          </Text>
+        )}
+
+        {/* Bubble */}
+        <View
+          style={[
+            styles.bubble,
+            isOwn
+              ? {
+                  backgroundColor: c.primary,
+                  borderBottomRightRadius: 4,
+                }
+              : {
+                  backgroundColor: c.surfaceAlt,
+                  borderBottomLeftRadius: 4,
+                },
+          ]}
         >
-          {message.text}
+          <Text style={[styles.messageText, { color: isOwn ? "#fff" : c.text }]}>
+            {message.text}
+          </Text>
+        </View>
+
+        {/* Time */}
+        <Text
+          style={[
+            styles.time,
+            { color: c.textMuted },
+            isOwn ? styles.timeOwn : styles.timeOther,
+          ]}
+        >
+          {time}
         </Text>
       </View>
-      <Text
-        className={`text-xs mt-1 ${isOwn ? "text-right mr-1" : "ml-1"}`}
-        style={{ color: "#9ca3af" }}
-      >
-        {time}
-      </Text>
     </View>
   );
 });
 
-function formatTime(date: Date): string {
-  const h = date.getHours().toString().padStart(2, "0");
-  const m = date.getMinutes().toString().padStart(2, "0");
-  return `${h}:${m}`;
-}
+const styles = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  wrapperOwn: {
+    justifyContent: "flex-end",
+  },
+  wrapperOther: {
+    justifyContent: "flex-start",
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+    marginTop: 2,
+  },
+  avatarText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  avatarSpacer: {
+    width: 36, // avatar width + marginRight
+  },
+  bubbleColumn: {
+    maxWidth: "75%",
+  },
+  bubbleColumnOwn: {
+    alignItems: "flex-end",
+  },
+  bubbleColumnOther: {
+    alignItems: "flex-start",
+  },
+  senderName: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginBottom: 2,
+    marginLeft: 4,
+  },
+  bubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  time: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  timeOwn: {
+    marginRight: 4,
+  },
+  timeOther: {
+    marginLeft: 4,
+  },
+});

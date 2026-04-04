@@ -1,79 +1,101 @@
-import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-} from "react-native";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { View, Text, FlatList, Animated, RefreshControl, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
 import { RequestCard } from "@/components/request/RequestCard";
 import { RequestStatus } from "@/types";
+import { getStatusColor, getStatusLabel, STATUS_ORDER } from "@/utils/status";
 import { WebContainer } from "@/components/ui/WebContainer";
 import { ListFooter } from "@/components/ui/ListFooter";
-
-const STATUS_CHIPS: { label: string; value: RequestStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Assigned", value: "assigned" },
-  { label: "In Progress", value: "in_progress" },
-  { label: "On Hold", value: "on_hold" },
-  { label: "Completed", value: "completed" },
-];
+import { SkeletonList } from "@/components/ui/SkeletonCard";
+import { FilterToolbar, ActiveFilter } from "@/components/request/FilterToolbar";
+import { FilterSheet, FilterSection } from "@/components/request/FilterSheet";
+import { useColors } from "@/hooks/useColors";
 
 export default function MaintainerTasksScreen() {
+  const c = useColors();
   const { user } = useAuth();
   const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useMaintainerRequests(user?.uid);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const listRef = useRef<FlatList>(null);
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const prevStatusRef = useRef(statusFilter);
+
+  useEffect(() => {
+    if (prevStatusRef.current !== statusFilter) {
+      prevStatusRef.current = statusFilter;
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    }
+  }, [statusFilter, fadeAnim]);
 
   const filtered = useMemo(() => {
     let result = requests;
-
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q),
-      );
+      result = result.filter((r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
     }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      result = result.filter((r) => r.status === statusFilter);
-    }
-
+    if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter);
     return result;
   }, [requests, search, statusFilter]);
 
+  const activeFilters = useMemo<ActiveFilter[]>(() => {
+    if (statusFilter === "all") return [];
+    return [{
+      key: "status",
+      label: getStatusLabel(statusFilter),
+      color: getStatusColor(statusFilter),
+      onClear: () => setStatusFilter("all"),
+    }];
+  }, [statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: requests.length };
+    for (const r of requests) { counts[r.status] = (counts[r.status] ?? 0) + 1; }
+    return counts;
+  }, [requests]);
+
+  // Maintainer only sees: assigned, in_progress, on_hold, completed
+  const maintainerStatuses: (RequestStatus | "all")[] = ["all", "assigned", "in_progress", "on_hold", "completed"];
+
+  const filterSections = useMemo<FilterSection[]>(() => [{
+    title: "Status",
+    key: "status",
+    selected: statusFilter,
+    onSelect: (v) => setStatusFilter(v as RequestStatus | "all"),
+    options: maintainerStatuses.map((s) => ({
+      label: s === "all" ? "All" : getStatusLabel(s as RequestStatus),
+      value: s,
+      color: s === "all" ? c.text : getStatusColor(s as RequestStatus),
+      count: statusCounts[s] ?? 0,
+    })),
+  }], [statusFilter, statusCounts, c.text, maintainerStatuses]);
+
+  const handleReset = useCallback(() => setStatusFilter("all"), []);
+
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
+      <WebContainer>
+        <View className="flex-1" style={{ backgroundColor: c.background }}>
+          <SkeletonList count={5} />
+        </View>
+      </WebContainer>
     );
   }
 
   if (listError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: "#ef4444", fontSize: 16, fontWeight: "600" }}>Failed to load tasks</Text>
-        <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>{listError.message}</Text>
-        <TouchableOpacity
-          className="mt-4 px-6 py-3 rounded-xl"
-          style={{ backgroundColor: "#3b82f6" }}
-          onPress={refresh}
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading tasks"
-        >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <Text style={{ color: c.error, fontSize: 16, fontWeight: "600" }}>Failed to load tasks</Text>
+        <Text className="text-xs mt-1" style={{ color: c.textMuted }}>{listError.message}</Text>
+        <TouchableOpacity className="mt-4 px-6 py-3 rounded-xl" style={{ backgroundColor: c.primary }} onPress={refresh}>
+          <Text style={{ color: c.background, fontWeight: "600" }}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -81,97 +103,52 @@ export default function MaintainerTasksScreen() {
 
   return (
     <WebContainer>
-    <View className="flex-1 bg-white">
-      {/* Search */}
-      <View className="px-4 pt-3 pb-2">
-        <View
-          className="flex-row items-center rounded-xl px-3 py-2"
-          style={{ backgroundColor: "#f3f4f6" }}
-        >
-          <Ionicons name="search-outline" size={18} color="#9ca3af" />
-          <TextInput
-            className="flex-1 ml-2 text-sm"
-            style={{ color: "#111827" }}
-            placeholder="Search tasks..."
-            placeholderTextColor="#9ca3af"
-            value={search}
-            onChangeText={setSearch}
-            accessibilityLabel="Search tasks"
-            accessibilityRole="search"
-            testID="maintainer-search-input"
-          />
-          {search.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearch("")}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-              testID="maintainer-search-clear"
-            >
-              <Ionicons name="close-circle" size={18} color="#9ca3af" />
-            </TouchableOpacity>
+    <View className="flex-1" style={{ backgroundColor: c.background }}>
+      <FilterToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search tasks..."
+        onFilterPress={() => setSheetOpen(true)}
+        activeFilters={activeFilters}
+        filterCount={activeFilters.length}
+      />
+
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <FlatList
+          ref={listRef}
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          initialNumToRender={15}
+          windowSize={5}
+          maxToRenderPerBatch={10}
+          removeClippedSubviews
+          contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
+          renderItem={({ item }) => (
+            <RequestCard request={item} onPress={() => router.push(`/(maintainer)/${item.id}`)} />
           )}
-        </View>
-      </View>
-
-      {/* Status filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
-      >
-        {STATUS_CHIPS.map((chip) => {
-          const isActive = statusFilter === chip.value;
-          return (
-            <TouchableOpacity
-              key={chip.value}
-              className="mr-2 px-4 py-1.5 rounded-full"
-              style={{
-                backgroundColor: isActive ? "#3b82f6" : "#f3f4f6",
-              }}
-              onPress={() => setStatusFilter(chip.value)}
-              accessibilityRole="button"
-              accessibilityLabel={`Filter: ${chip.label}`}
-              accessibilityState={{ selected: isActive }}
-              testID={`maintainer-filter-${chip.value}`}
-            >
-              <Text
-                className="text-xs font-medium"
-                style={{ color: isActive ? "#fff" : "#6b7280" }}
-              >
-                {chip.label}
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center">
+              <Ionicons name="construct-outline" size={48} color={c.borderLight} style={{ marginBottom: 12 }} />
+              <Text className="text-lg font-medium" style={{ color: c.textMuted }}>
+                {search || statusFilter !== "all" ? "No matching tasks" : "No tasks assigned yet"}
               </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+              {(search || statusFilter !== "all") && (
+                <Text className="text-sm mt-1" style={{ color: c.textMuted }}>Try adjusting your search or filters</Text>
+              )}
+            </View>
+          }
+        />
+      </Animated.View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        initialNumToRender={15}
-        windowSize={5}
-        maxToRenderPerBatch={10}
-        removeClippedSubviews
-        contentContainerStyle={{ paddingHorizontal: 16, flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#3b82f6" />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
-        renderItem={({ item }) => (
-          <RequestCard
-            request={item}
-            onPress={() => router.push(`/(maintainer)/${item.id}`)}
-          />
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-lg font-medium" style={{ color: "#9ca3af" }}>
-              No tasks assigned yet
-            </Text>
-          </View>
-        }
+      <FilterSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        sections={filterSections}
+        onReset={handleReset}
       />
     </View>
     </WebContainer>

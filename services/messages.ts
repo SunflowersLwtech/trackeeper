@@ -12,6 +12,7 @@ import { db } from "@/config/firebase";
 import { Message } from "@/types";
 
 const MESSAGES_LIMIT = 50;
+const MAX_MESSAGE_LENGTH = 2000;
 
 function getMessagesRef(requestId: string) {
   return collection(db, "requests", requestId, "messages");
@@ -24,10 +25,17 @@ export async function sendMessage(
   senderName: string,
   text: string,
 ): Promise<string> {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    throw new Error("Message cannot be empty");
+  }
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`);
+  }
   const docRef = await addDoc(getMessagesRef(requestId), {
     senderId,
     senderName,
-    text: text.trim(),
+    text: trimmed,
     createdAt: serverTimestamp(),
   });
   return docRef.id;

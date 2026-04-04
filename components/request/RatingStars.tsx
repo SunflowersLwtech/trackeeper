@@ -1,6 +1,7 @@
 import React from "react";
 import { View, TouchableOpacity, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
 
 interface RatingStarsProps {
   rating: number;
@@ -10,6 +11,8 @@ interface RatingStarsProps {
 }
 
 export function RatingStars({ rating, onRate, size = 28, readonly = false }: RatingStarsProps) {
+  const c = useColors();
+
   return (
     <View className="flex-row items-center">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -26,12 +29,12 @@ export function RatingStars({ rating, onRate, size = 28, readonly = false }: Rat
           <Ionicons
             name={star <= rating ? "star" : "star-outline"}
             size={size}
-            color={star <= rating ? "#f59e0b" : "#d1d5db"}
+            color={star <= rating ? c.warning : c.border}
           />
         </TouchableOpacity>
       ))}
       {readonly && rating > 0 && (
-        <Text className="ml-2 text-sm font-medium" style={{ color: "#6b7280" }}>
+        <Text className="ml-2 text-sm font-medium" style={{ color: c.textTertiary }}>
           {rating}/5
         </Text>
       )}

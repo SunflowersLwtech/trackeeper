@@ -1,89 +1,166 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { RequestStatus } from "@/types";
 import { STATUS_ORDER, getStatusColor, getStatusLabel, getStatusIndex } from "@/utils/status";
+import { useColors } from "@/hooks/useColors";
+import { withOpacity } from "@/utils/color";
+
+/** Step icon names matching each status stage. */
+const STEP_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  submitted: "document-text-outline",
+  assigned: "person-add-outline",
+  in_progress: "construct-outline",
+  completed: "checkmark-circle-outline",
+};
 
 interface StatusTimelineProps {
   currentStatus: RequestStatus;
 }
 
+/**
+ * Compact card-style status indicator.
+ * Shows the current status prominently with a segmented progress bar beneath.
+ */
 export function StatusTimeline({ currentStatus }: StatusTimelineProps) {
+  const c = useColors();
+
   if (currentStatus === "cancelled") {
     return (
-      <View className="items-center py-4 px-2">
-        <View
-          className="w-10 h-10 rounded-full items-center justify-center mb-2"
-          style={{ backgroundColor: "#fef2f2" }}
-        >
-          <Ionicons name="close-circle" size={24} color="#ef4444" />
+      <View style={[styles.card, { backgroundColor: c.errorBg, borderColor: c.errorBorder }]}>
+        <View style={styles.headerRow}>
+          <View style={[styles.iconCircle, { backgroundColor: withOpacity(c.error, 0.15) }]}>
+            <Ionicons name="close-circle" size={20} color={c.error} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={[styles.statusLabel, { color: c.error }]}>Cancelled</Text>
+            <Text style={[styles.statusHint, { color: c.errorTextMedium }]}>
+              This request has been cancelled
+            </Text>
+          </View>
         </View>
-        <Text className="text-sm font-semibold" style={{ color: "#ef4444" }}>
-          Request Cancelled
-        </Text>
       </View>
     );
   }
 
-  // For on_hold, show a banner + the timeline at the last active position
   const isOnHold = currentStatus === "on_hold";
-  // When on hold, show timeline up to in_progress level (index 2) to indicate work was underway
   const displayStatus: RequestStatus = isOnHold ? "in_progress" : currentStatus;
   const currentIndex = getStatusIndex(displayStatus);
+  const color = isOnHold ? c.violet : getStatusColor(displayStatus);
+  const label = isOnHold ? "On Hold" : getStatusLabel(displayStatus);
+  const icon = isOnHold ? "pause-circle" : (STEP_ICONS[displayStatus] ?? "ellipse-outline");
+  const bgColor = isOnHold ? c.violetBg : withOpacity(color, 0.08);
+  const borderColor = isOnHold ? c.violetBorder : withOpacity(color, 0.2);
 
   return (
-    <View>
-      {isOnHold && (
-        <View className="items-center py-3 px-2 mb-2 rounded-lg" style={{ backgroundColor: "#f5f3ff" }}>
-          <View className="flex-row items-center">
-            <Ionicons name="pause-circle" size={20} color="#8b5cf6" />
-            <Text className="text-sm font-semibold ml-2" style={{ color: "#8b5cf6" }}>
-              On Hold
-            </Text>
-          </View>
+    <View style={[styles.card, { backgroundColor: bgColor, borderColor }]}>
+      {/* Current status header */}
+      <View style={styles.headerRow}>
+        <View style={[styles.iconCircle, { backgroundColor: withOpacity(color, 0.15) }]}>
+          <Ionicons name={icon} size={20} color={color} />
         </View>
-      )}
-      <View className="flex-row items-center justify-between py-4 px-2">
+        <View style={styles.headerText}>
+          <Text style={[styles.statusLabel, { color }]}>{label}</Text>
+          <Text style={[styles.statusHint, { color: c.textTertiary }]}>
+            Step {Math.min(currentIndex + 1, STATUS_ORDER.length)} of {STATUS_ORDER.length}
+          </Text>
+        </View>
+      </View>
+
+      {/* Segmented progress bar */}
+      <View style={styles.progressRow}>
         {STATUS_ORDER.map((status, index) => {
           const isActive = index <= currentIndex;
-          const color = isActive ? getStatusColor(status) : "#d1d5db";
-          const isLast = index === STATUS_ORDER.length - 1;
-
+          const segmentColor = isActive ? getStatusColor(status) : c.borderLight;
           return (
-            <React.Fragment key={status}>
-              <View className="items-center" style={{ flex: 1 }}>
-                <View
-                  className="w-8 h-8 rounded-full items-center justify-center mb-1"
-                  style={{ backgroundColor: isActive ? color : "#f3f4f6" }}
-                >
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: isActive ? "#fff" : "#9ca3af" }}
-                  >
-                    {index + 1}
-                  </Text>
-                </View>
-                <Text
-                  className="text-xs text-center"
-                  style={{ color: isActive ? "#374151" : "#9ca3af" }}
-                  numberOfLines={1}
-                >
-                  {getStatusLabel(status)}
-                </Text>
-              </View>
-              {!isLast && (
-                <View
-                  className="h-1 flex-1 rounded-full mx-1"
-                  style={{
-                    backgroundColor: index < currentIndex ? getStatusColor(STATUS_ORDER[index + 1]) : "#e5e7eb",
-                    marginBottom: 20,
-                  }}
-                />
-              )}
-            </React.Fragment>
+            <View
+              key={status}
+              style={[
+                styles.progressSegment,
+                index < STATUS_ORDER.length - 1 && styles.progressSegmentGap,
+                { backgroundColor: segmentColor },
+              ]}
+            />
+          );
+        })}
+      </View>
+
+      {/* Step labels */}
+      <View style={styles.labelsRow}>
+        {STATUS_ORDER.map((status, index) => {
+          const isActive = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          return (
+            <Text
+              key={status}
+              style={[
+                styles.stepLabel,
+                {
+                  color: isActive ? c.textSecondary : c.textMuted,
+                  fontWeight: isCurrent ? "600" : "400",
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {getStatusLabel(status)}
+            </Text>
           );
         })}
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  headerText: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  statusHint: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  progressRow: {
+    flexDirection: "row",
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressSegment: {
+    flex: 1,
+    borderRadius: 3,
+  },
+  progressSegmentGap: {
+    marginRight: 3,
+  },
+  labelsRow: {
+    flexDirection: "row",
+    marginTop: 6,
+  },
+  stepLabel: {
+    flex: 1,
+    fontSize: 10,
+    textAlign: "center",
+  },
+});

@@ -17,8 +17,9 @@ import { createRequest } from "@/services/requests";
 import { RequestCategory, RequestPriority } from "@/types";
 import { validateRequestForm } from "@/utils/validation";
 import { showSuccess, showError } from "@/utils/toast";
-import { alertMessage } from "@/utils/confirm";
 import { getPriorityColor } from "@/utils/priority";
+import { useColors } from "@/hooks/useColors";
+import { withOpacity } from "@/utils/color";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
 const PRIORITIES: { value: RequestPriority; label: string }[] = [
@@ -29,6 +30,7 @@ const PRIORITIES: { value: RequestPriority; label: string }[] = [
 
 export default function CreateRequestScreen() {
   const { user } = useAuth();
+  const c = useColors();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<RequestCategory | "">("");
@@ -51,7 +53,7 @@ export default function CreateRequestScreen() {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      alertMessage("Permission needed", "Camera access is required to take photos.");
+      showError("Permission needed", "Camera access is required to take photos.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -108,36 +110,36 @@ export default function CreateRequestScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
+      <ScrollView className="flex-1" style={{ backgroundColor: c.background }} contentContainerStyle={{ padding: 24 }}>
         {/* Title */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Title</Text>
+          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Title</Text>
           <TextInput
             className="border rounded-xl px-4 py-3 text-base"
-            style={{ borderColor: fieldErrors.title ? "#ef4444" : "#d1d5db", color: "#111827" }}
+            style={{ borderColor: fieldErrors.title ? c.error : c.border, color: c.text }}
             placeholder="Brief description of the issue"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={c.textMuted}
             value={title}
             onChangeText={(t) => { setTitle(t); setFieldErrors((e) => { const { title: _, ...rest } = e; return rest; }); }}
             accessibilityLabel="Request title"
             testID="create-request-title-input"
           />
           {fieldErrors.title && (
-            <Text className="text-xs mt-1" style={{ color: "#ef4444" }}>{fieldErrors.title}</Text>
+            <Text className="text-xs mt-1" style={{ color: c.error }}>{fieldErrors.title}</Text>
           )}
         </View>
 
         {/* Category */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Category</Text>
+          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Category</Text>
           <View className="flex-row">
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat}
                 className="mr-2 px-4 py-2 rounded-xl border"
                 style={{
-                  borderColor: category === cat ? "#3b82f6" : "#d1d5db",
-                  backgroundColor: category === cat ? "#eff6ff" : "#fff",
+                  borderColor: category === cat ? c.primary : c.border,
+                  backgroundColor: category === cat ? c.primaryBg : c.background,
                 }}
                 onPress={() => { setCategory(cat); setFieldErrors((e) => { const { category: _, ...rest } = e; return rest; }); }}
                 accessibilityRole="button"
@@ -147,7 +149,7 @@ export default function CreateRequestScreen() {
               >
                 <Text
                   className="text-sm"
-                  style={{ color: category === cat ? "#3b82f6" : "#374151" }}
+                  style={{ color: category === cat ? c.primary : c.textSecondary }}
                 >
                   {cat}
                 </Text>
@@ -155,13 +157,13 @@ export default function CreateRequestScreen() {
             ))}
           </View>
           {fieldErrors.category && (
-            <Text className="text-xs mt-1" style={{ color: "#ef4444" }}>{fieldErrors.category}</Text>
+            <Text className="text-xs mt-1" style={{ color: c.error }}>{fieldErrors.category}</Text>
           )}
         </View>
 
         {/* Priority */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Priority</Text>
+          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Priority</Text>
           <View className="flex-row">
             {PRIORITIES.map((p) => {
               const color = getPriorityColor(p.value);
@@ -171,8 +173,8 @@ export default function CreateRequestScreen() {
                   key={p.value}
                   className="mr-2 flex-row items-center px-4 py-2 rounded-xl border"
                   style={{
-                    borderColor: selected ? color : "#d1d5db",
-                    backgroundColor: selected ? color + "15" : "#fff",
+                    borderColor: selected ? color : c.border,
+                    backgroundColor: selected ? withOpacity(color, 0.08) : c.background,
                   }}
                   onPress={() => setPriority(p.value)}
                   accessibilityRole="button"
@@ -186,7 +188,7 @@ export default function CreateRequestScreen() {
                   />
                   <Text
                     className="text-sm"
-                    style={{ color: selected ? color : "#374151" }}
+                    style={{ color: selected ? color : c.textSecondary }}
                   >
                     {p.label}
                   </Text>
@@ -198,17 +200,17 @@ export default function CreateRequestScreen() {
 
         {/* Description */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Description</Text>
+          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Description</Text>
           <TextInput
             className="border rounded-xl px-4 py-3 text-base"
             style={{
-              borderColor: fieldErrors.description ? "#ef4444" : "#d1d5db",
-              color: "#111827",
+              borderColor: fieldErrors.description ? c.error : c.border,
+              color: c.text,
               height: 120,
               textAlignVertical: "top",
             }}
             placeholder="Provide detailed information about the issue..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={c.textMuted}
             value={description}
             onChangeText={(t) => { setDescription(t); setFieldErrors((e) => { const { description: _, ...rest } = e; return rest; }); }}
             multiline
@@ -217,13 +219,13 @@ export default function CreateRequestScreen() {
             testID="create-request-description-input"
           />
           {fieldErrors.description && (
-            <Text className="text-xs mt-1" style={{ color: "#ef4444" }}>{fieldErrors.description}</Text>
+            <Text className="text-xs mt-1" style={{ color: c.error }}>{fieldErrors.description}</Text>
           )}
         </View>
 
         {/* Image */}
         <View className="mb-6">
-          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Photo (optional)</Text>
+          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Photo (optional)</Text>
           {imageUri ? (
             <View className="mb-2">
               <Image
@@ -234,36 +236,36 @@ export default function CreateRequestScreen() {
               />
               <TouchableOpacity
                 className="absolute top-2 right-2 w-8 h-8 rounded-full items-center justify-center"
-                style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+                style={{ backgroundColor: c.overlay }}
                 onPress={() => setImageUri(null)}
                 accessibilityRole="button"
                 accessibilityLabel="Remove photo"
                 testID="create-request-remove-photo"
               >
-                <Text className="text-white text-base">×</Text>
+                <Text style={{ color: c.background }} className="text-base">×</Text>
               </TouchableOpacity>
             </View>
           ) : null}
           <View className="flex-row">
             <TouchableOpacity
               className="flex-1 border rounded-xl py-3 items-center mr-2"
-              style={{ borderColor: "#d1d5db" }}
+              style={{ borderColor: c.border }}
               onPress={takePhoto}
               accessibilityRole="button"
               accessibilityLabel="Take photo with camera"
               testID="create-request-camera-button"
             >
-              <Text style={{ color: "#374151" }}>Camera</Text>
+              <Text style={{ color: c.textSecondary }}>Camera</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 border rounded-xl py-3 items-center"
-              style={{ borderColor: "#d1d5db" }}
+              style={{ borderColor: c.border }}
               onPress={pickImage}
               accessibilityRole="button"
               accessibilityLabel="Choose photo from gallery"
               testID="create-request-gallery-button"
             >
-              <Text style={{ color: "#374151" }}>Gallery</Text>
+              <Text style={{ color: c.textSecondary }}>Gallery</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -271,7 +273,7 @@ export default function CreateRequestScreen() {
         {/* Submit */}
         <TouchableOpacity
           className="rounded-xl py-4 items-center"
-          style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
+          style={{ backgroundColor: loading ? c.primaryLight : c.primary }}
           onPress={handleSubmit}
           disabled={loading}
           accessibilityRole="button"
@@ -280,9 +282,9 @@ export default function CreateRequestScreen() {
           testID="create-request-submit-button"
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={c.background} />
           ) : (
-            <Text className="text-white text-base font-semibold">Submit Request</Text>
+            <Text className="text-base font-semibold" style={{ color: c.background }}>Submit Request</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

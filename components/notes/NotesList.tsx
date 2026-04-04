@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Note } from "@/types";
+import { useColors } from "@/hooks/useColors";
+import { formatDateTime } from "@/utils/time";
 
 interface NotesListProps {
   notes: Note[];
@@ -9,10 +11,12 @@ interface NotesListProps {
 }
 
 export function NotesList({ notes, loading, error }: NotesListProps) {
+  const c = useColors();
+
   if (error) {
     return (
       <View className="py-4 items-center">
-        <Text className="text-xs" style={{ color: "#ef4444" }}>Failed to load notes</Text>
+        <Text className="text-xs" style={{ color: c.error }}>Failed to load notes</Text>
       </View>
     );
   }
@@ -20,7 +24,7 @@ export function NotesList({ notes, loading, error }: NotesListProps) {
   if (loading) {
     return (
       <View className="py-4 items-center">
-        <ActivityIndicator size="small" color="#3b82f6" />
+        <ActivityIndicator size="small" color={c.primary} />
       </View>
     );
   }
@@ -28,7 +32,7 @@ export function NotesList({ notes, loading, error }: NotesListProps) {
   if (notes.length === 0) {
     return (
       <View className="py-4 items-center">
-        <Text className="text-xs" style={{ color: "#9ca3af" }}>No internal notes yet</Text>
+        <Text className="text-xs" style={{ color: c.textMuted }}>No internal notes yet</Text>
       </View>
     );
   }
@@ -43,26 +47,18 @@ export function NotesList({ notes, loading, error }: NotesListProps) {
           <View
             key={note.id}
             className="px-3 py-2.5 mb-2 rounded-lg border"
-            style={{ borderColor: "#e5e7eb", backgroundColor: "#fffbeb" }}
+            style={{ borderColor: c.borderLight, backgroundColor: c.warningBg }}
           >
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-xs font-semibold" style={{ color: "#92400e" }}>
+              <Text className="text-xs font-semibold" style={{ color: c.warningTextDark }}>
                 {note.managerName}
               </Text>
-              <Text className="text-xs" style={{ color: "#9ca3af" }}>{time}</Text>
+              <Text className="text-xs" style={{ color: c.textMuted }}>{time}</Text>
             </View>
-            <Text className="text-sm" style={{ color: "#374151" }}>{note.text}</Text>
+            <Text className="text-sm" style={{ color: c.textSecondary }}>{note.text}</Text>
           </View>
         );
       })}
     </View>
   );
-}
-
-function formatDateTime(date: Date): string {
-  const h = date.getHours().toString().padStart(2, "0");
-  const m = date.getMinutes().toString().padStart(2, "0");
-  const d = date.getDate();
-  const mo = (date.getMonth() + 1).toString().padStart(2, "0");
-  return `${d}/${mo} ${h}:${m}`;
 }

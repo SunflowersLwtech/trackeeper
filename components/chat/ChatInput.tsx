@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text } from "react-native";
+import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
 
 interface ChatInputProps {
   onSend: (text: string) => void;
@@ -7,7 +9,10 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
+  const c = useColors();
   const [text, setText] = useState("");
+
+  const canSend = text.trim().length > 0 && !disabled;
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -17,39 +22,65 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <View
-      className="flex-row items-end px-4 py-3 border-t"
-      style={{ borderTopColor: "#e5e7eb", backgroundColor: "#fff" }}
-    >
-      <TextInput
-        className="flex-1 border rounded-2xl px-4 py-2 mr-2 text-base"
-        style={{
-          borderColor: "#d1d5db",
-          color: "#111827",
-          maxHeight: 100,
-        }}
-        placeholder="Type a message..."
-        placeholderTextColor="#9ca3af"
-        value={text}
-        onChangeText={setText}
-        multiline
-        editable={!disabled}
-        accessibilityLabel="Message input"
-        accessibilityHint="Type a message to send"
-        testID="chat-message-input"
-      />
+    <View style={[styles.container, { borderTopColor: c.borderLight, backgroundColor: c.background }]}>
+      <View style={[styles.inputWrapper, { backgroundColor: c.surfaceAlt, borderColor: c.borderLight }]}>
+        <TextInput
+          style={[styles.input, { color: c.text }]}
+          placeholder="Type a message..."
+          placeholderTextColor={c.textMuted}
+          value={text}
+          onChangeText={setText}
+          multiline
+          editable={!disabled}
+          accessibilityLabel="Message input"
+          accessibilityHint="Type a message to send"
+          testID="chat-message-input"
+        />
+      </View>
       <TouchableOpacity
-        className="w-10 h-10 rounded-full items-center justify-center"
-        style={{ backgroundColor: text.trim() ? "#3b82f6" : "#d1d5db" }}
+        style={[styles.sendButton, { backgroundColor: canSend ? c.primary : c.border }]}
         onPress={handleSend}
-        disabled={!text.trim() || disabled}
+        disabled={!canSend}
+        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel="Send message"
-        accessibilityState={{ disabled: !text.trim() || disabled }}
+        accessibilityState={{ disabled: !canSend }}
         testID="chat-send-button"
       >
-        <Text className="text-white font-bold text-base">↑</Text>
+        <Ionicons name="arrow-up" size={20} color="#fff" />
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+  },
+  inputWrapper: {
+    flex: 1,
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    maxHeight: 120,
+  },
+  input: {
+    fontSize: 15,
+    lineHeight: 20,
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+});

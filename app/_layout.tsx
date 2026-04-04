@@ -8,6 +8,7 @@ import { toastConfig } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
 import { useNotifications } from "@/hooks/useNotifications";
+import Colors from "@/constants/Colors";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -15,8 +16,8 @@ SplashScreen.preventAutoHideAsync();
 
 function LoadingScreen() {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" }}>
-      <ActivityIndicator size="large" color="#3b82f6" />
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.light.background }}>
+      <ActivityIndicator size="large" color={Colors.light.primary} />
     </View>
   );
 }

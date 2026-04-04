@@ -7,47 +7,38 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 describe("StatusTimeline", () => {
-  it("renders all four timeline step labels", () => {
+  it("renders step labels and progress for submitted status", () => {
     render(<StatusTimeline currentStatus="submitted" />);
-    expect(screen.getByText("Submitted")).toBeTruthy();
+    // "Submitted" appears in header + step label row
+    expect(screen.getAllByText("Submitted").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Assigned")).toBeTruthy();
     expect(screen.getByText("In Progress")).toBeTruthy();
     expect(screen.getByText("Completed")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 4")).toBeTruthy();
   });
 
-  it("renders step numbers 1-4", () => {
-    render(<StatusTimeline currentStatus="submitted" />);
-    expect(screen.getByText("1")).toBeTruthy();
-    expect(screen.getByText("2")).toBeTruthy();
-    expect(screen.getByText("3")).toBeTruthy();
-    expect(screen.getByText("4")).toBeTruthy();
-  });
-
-  it("shows cancelled state instead of timeline", () => {
+  it("shows cancelled state with no step labels", () => {
     render(<StatusTimeline currentStatus="cancelled" />);
-    expect(screen.getByText("Request Cancelled")).toBeTruthy();
-    expect(screen.queryByText("Submitted")).toBeNull();
+    expect(screen.getByText("Cancelled")).toBeTruthy();
+    expect(screen.queryByText("Step 1 of 4")).toBeNull();
   });
 
-  it("shows on_hold banner when status is on_hold", () => {
+  it("shows on_hold status prominently with step labels", () => {
     render(<StatusTimeline currentStatus="on_hold" />);
     expect(screen.getByText("On Hold")).toBeTruthy();
-    // Timeline steps should still be visible underneath
-    expect(screen.getByText("Submitted")).toBeTruthy();
+    // Step labels should still be visible
+    expect(screen.getAllByText("Submitted").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders timeline for assigned status", () => {
+  it("renders correct step for assigned status", () => {
     render(<StatusTimeline currentStatus="assigned" />);
-    // Steps 1 and 2 should be active, step labels should all appear
-    expect(screen.getByText("Submitted")).toBeTruthy();
-    expect(screen.getByText("Assigned")).toBeTruthy();
-    expect(screen.getByText("In Progress")).toBeTruthy();
-    expect(screen.getByText("Completed")).toBeTruthy();
+    expect(screen.getAllByText("Assigned").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Step 2 of 4")).toBeTruthy();
   });
 
-  it("renders timeline for completed status (all steps active)", () => {
+  it("renders correct step for completed status", () => {
     render(<StatusTimeline currentStatus="completed" />);
-    expect(screen.getByText("Submitted")).toBeTruthy();
-    expect(screen.getByText("Completed")).toBeTruthy();
+    expect(screen.getByText("Step 4 of 4")).toBeTruthy();
+    expect(screen.getAllByText("Completed").length).toBeGreaterThanOrEqual(1);
   });
 });

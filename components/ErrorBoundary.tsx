@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import Colors from "@/constants/Colors";
 
 interface Props {
   children: React.ReactNode;
@@ -28,19 +29,20 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const t = Colors.light;
       return (
         <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#fff" }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: t.background }}
           accessibilityRole="alert"
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
+          <Text style={{ fontSize: 18, fontWeight: "600", color: t.text, marginBottom: 8 }}>
             {this.props.fallbackTitle ?? "Something went wrong"}
           </Text>
-          <Text style={{ fontSize: 14, color: "#6b7280", textAlign: "center", marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, color: t.textTertiary, textAlign: "center", marginBottom: 16 }}>
             {this.state.error?.message ?? "An unexpected error occurred"}
           </Text>
           <TouchableOpacity
-            style={{ backgroundColor: "#3b82f6", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+            style={{ backgroundColor: t.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
             onPress={this.handleRetry}
             accessibilityRole="button"
             accessibilityLabel="Try again"

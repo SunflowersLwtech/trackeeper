@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator } from "react-native";
+import { useColors } from "@/hooks/useColors";
 
 interface NoteInputProps {
   onSubmit: (text: string) => Promise<void>;
 }
 
 export function NoteInput({ onSubmit }: NoteInputProps) {
+  const c = useColors();
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,9 +27,9 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
     <View className="flex-row items-end px-3 py-2">
       <TextInput
         className="flex-1 border rounded-xl px-3 py-2 mr-2 text-sm"
-        style={{ borderColor: "#d1d5db", color: "#111827", maxHeight: 80 }}
+        style={{ borderColor: c.border, color: c.text, maxHeight: 80 }}
         placeholder="Add internal note..."
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={c.textMuted}
         value={text}
         onChangeText={setText}
         multiline
@@ -38,7 +40,7 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
       />
       <TouchableOpacity
         className="px-4 py-2.5 rounded-xl"
-        style={{ backgroundColor: text.trim() && !submitting ? "#f59e0b" : "#e5e7eb" }}
+        style={{ backgroundColor: text.trim() && !submitting ? c.warning : c.borderLight }}
         onPress={handleSubmit}
         disabled={!text.trim() || submitting}
         accessibilityRole="button"
@@ -47,9 +49,9 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
         testID="submit-note-button"
       >
         {submitting ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <ActivityIndicator color={c.background} size="small" />
         ) : (
-          <Text className="text-xs font-semibold" style={{ color: text.trim() ? "#fff" : "#9ca3af" }}>
+          <Text className="text-xs font-semibold" style={{ color: text.trim() ? c.background : c.textMuted }}>
             Note
           </Text>
         )}

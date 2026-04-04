@@ -16,6 +16,8 @@ import { RequestCategory, RequestPriority } from "@/types";
 import { validateRequestForm } from "@/utils/validation";
 import { showSuccess, showError } from "@/utils/toast";
 import { getPriorityColor } from "@/utils/priority";
+import { useColors } from "@/hooks/useColors";
+import { withOpacity } from "@/utils/color";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
 const PRIORITIES: { value: RequestPriority; label: string }[] = [
@@ -27,6 +29,7 @@ const PRIORITIES: { value: RequestPriority; label: string }[] = [
 export default function EditRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { request, loading: requestLoading } = useRequest(id);
+  const c = useColors();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<RequestCategory | "">("");
@@ -70,16 +73,16 @@ export default function EditRequestScreen() {
 
   if (requestLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <ActivityIndicator size="large" color={c.primary} />
       </View>
     );
   }
 
   if (!request || request.status !== "submitted") {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: "#6b7280" }}>This request cannot be edited</Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <Text style={{ color: c.textTertiary }}>This request cannot be edited</Text>
       </View>
     );
   }
@@ -90,13 +93,13 @@ export default function EditRequestScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <Stack.Screen options={{ headerShown: true, title: "Edit Request" }} />
-      <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
+      <ScrollView className="flex-1" style={{ backgroundColor: c.background }} contentContainerStyle={{ padding: 24 }}>
         {/* Title */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Title</Text>
+          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Title</Text>
           <TextInput
             className="border rounded-xl px-4 py-3 text-base"
-            style={{ borderColor: "#d1d5db", color: "#111827" }}
+            style={{ borderColor: c.border, color: c.text }}
             value={title}
             onChangeText={setTitle}
             testID="edit-request-title-input"
@@ -105,22 +108,22 @@ export default function EditRequestScreen() {
 
         {/* Category */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Category</Text>
+          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Category</Text>
           <View className="flex-row">
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat}
                 className="mr-2 px-4 py-2 rounded-xl border"
                 style={{
-                  borderColor: category === cat ? "#3b82f6" : "#d1d5db",
-                  backgroundColor: category === cat ? "#eff6ff" : "#fff",
+                  borderColor: category === cat ? c.primary : c.border,
+                  backgroundColor: category === cat ? c.primaryBg : c.background,
                 }}
                 onPress={() => setCategory(cat)}
                 testID={`edit-request-category-${cat.toLowerCase()}`}
               >
                 <Text
                   className="text-sm"
-                  style={{ color: category === cat ? "#3b82f6" : "#374151" }}
+                  style={{ color: category === cat ? c.primary : c.textSecondary }}
                 >
                   {cat}
                 </Text>
@@ -131,7 +134,7 @@ export default function EditRequestScreen() {
 
         {/* Priority */}
         <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>Priority</Text>
+          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Priority</Text>
           <View className="flex-row">
             {PRIORITIES.map((p) => {
               const color = getPriorityColor(p.value);
@@ -141,8 +144,8 @@ export default function EditRequestScreen() {
                   key={p.value}
                   className="mr-2 flex-row items-center px-4 py-2 rounded-xl border"
                   style={{
-                    borderColor: selected ? color : "#d1d5db",
-                    backgroundColor: selected ? color + "15" : "#fff",
+                    borderColor: selected ? color : c.border,
+                    backgroundColor: selected ? withOpacity(color, 0.08) : c.background,
                   }}
                   onPress={() => setPriority(p.value)}
                   testID={`edit-request-priority-${p.value}`}
@@ -151,7 +154,7 @@ export default function EditRequestScreen() {
                     className="w-2.5 h-2.5 rounded-full mr-2"
                     style={{ backgroundColor: color }}
                   />
-                  <Text className="text-sm" style={{ color: selected ? color : "#374151" }}>
+                  <Text className="text-sm" style={{ color: selected ? color : c.textSecondary }}>
                     {p.label}
                   </Text>
                 </TouchableOpacity>
@@ -162,12 +165,12 @@ export default function EditRequestScreen() {
 
         {/* Description */}
         <View className="mb-6">
-          <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Description</Text>
+          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Description</Text>
           <TextInput
             className="border rounded-xl px-4 py-3 text-base"
             style={{
-              borderColor: "#d1d5db",
-              color: "#111827",
+              borderColor: c.border,
+              color: c.text,
               height: 120,
               textAlignVertical: "top",
             }}
@@ -182,15 +185,15 @@ export default function EditRequestScreen() {
         {/* Save */}
         <TouchableOpacity
           className="rounded-xl py-4 items-center"
-          style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
+          style={{ backgroundColor: loading ? c.primaryLight : c.primary }}
           onPress={handleSave}
           disabled={loading}
           testID="edit-request-save-button"
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={c.background} />
           ) : (
-            <Text className="text-white text-base font-semibold">Save Changes</Text>
+            <Text className="text-base font-semibold" style={{ color: c.background }}>Save Changes</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

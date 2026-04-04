@@ -1,108 +1,57 @@
 import React from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { RequestStatus, RequestCategory } from "@/types";
-
-const STATUS_FILTERS: { label: string; value: RequestStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Submitted", value: "submitted" },
-  { label: "Assigned", value: "assigned" },
-  { label: "In Progress", value: "in_progress" },
-  { label: "On Hold", value: "on_hold" },
-  { label: "Completed", value: "completed" },
-  { label: "Cancelled", value: "cancelled" },
-];
-
-const CATEGORY_FILTERS: { label: string; value: RequestCategory | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Plumbing", value: "Plumbing" },
-  { label: "Electrical", value: "Electrical" },
-  { label: "General", value: "General" },
-];
+import { RequestCategory } from "@/types";
+import { useColors } from "@/hooks/useColors";
 
 export type SortOption = "newest" | "oldest" | "priority";
-
-const SORT_OPTIONS: { label: string; value: SortOption }[] = [
-  { label: "Newest", value: "newest" },
-  { label: "Oldest", value: "oldest" },
-  { label: "Priority", value: "priority" },
-];
 
 interface FilterBarProps {
   search: string;
   onSearchChange: (text: string) => void;
-  statusFilter: RequestStatus | "all";
-  onStatusChange: (status: RequestStatus | "all") => void;
   categoryFilter: RequestCategory | "all";
   onCategoryChange: (category: RequestCategory | "all") => void;
   sort: SortOption;
   onSortChange: (sort: SortOption) => void;
 }
 
-function ChipRow<T extends string>({
-  items,
-  selected,
-  onSelect,
-}: {
-  items: { label: string; value: T }[];
-  selected: T;
-  onSelect: (value: T) => void;
-}) {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 6 }}
-    >
-      {items.map((item) => (
-        <TouchableOpacity
-          key={item.value}
-          className="mr-2 px-3 py-1.5 rounded-full border"
-          style={{
-            borderColor: selected === item.value ? "#3b82f6" : "#d1d5db",
-            backgroundColor: selected === item.value ? "#eff6ff" : "#fff",
-          }}
-          onPress={() => onSelect(item.value)}
-          accessibilityRole="button"
-          accessibilityLabel={`Filter by status: ${item.label}`}
-          accessibilityState={{ selected: selected === item.value }}
-        >
-          <Text
-            className="text-xs"
-            style={{ color: selected === item.value ? "#3b82f6" : "#6b7280" }}
-          >
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-}
+const CATEGORIES: { label: string; value: RequestCategory | "all"; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: "All", value: "all", icon: "apps-outline" },
+  { label: "Plumbing", value: "Plumbing", icon: "water-outline" },
+  { label: "Electrical", value: "Electrical", icon: "flash-outline" },
+  { label: "General", value: "General", icon: "build-outline" },
+];
 
+const SORTS: { label: string; value: SortOption }[] = [
+  { label: "Newest", value: "newest" },
+  { label: "Oldest", value: "oldest" },
+  { label: "Priority", value: "priority" },
+];
+
+/**
+ * Secondary filter bar — search + category + sort.
+ * Each section has its own row to avoid cramping.
+ */
 export function FilterBar({
   search,
   onSearchChange,
-  statusFilter,
-  onStatusChange,
   categoryFilter,
   onCategoryChange,
   sort,
   onSortChange,
 }: FilterBarProps) {
+  const c = useColors();
+
   return (
-    <View>
+    <View style={styles.wrapper}>
       {/* Search */}
-      <View className="px-4 pt-3 pb-1">
-        <View
-          className="flex-row items-center border rounded-xl px-3 py-2"
-          style={{ borderColor: "#d1d5db", backgroundColor: "#f9fafb" }}
-        >
-          <Ionicons name="search-outline" size={18} color="#9ca3af" />
+      <View style={styles.searchRow}>
+        <View style={[styles.searchBox, { borderColor: c.border, backgroundColor: c.surface }]}>
+          <Ionicons name="search-outline" size={18} color={c.textMuted} />
           <TextInput
-            className="flex-1 ml-2 text-sm"
-            style={{ color: "#111827" }}
+            style={[styles.searchInput, { color: c.text }]}
             placeholder="Search requests..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={c.textMuted}
             value={search}
             onChangeText={onSearchChange}
             accessibilityLabel="Search requests"
@@ -111,65 +60,174 @@ export function FilterBar({
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => onSearchChange("")} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color="#9ca3af" />
+              <Ionicons name="close-circle" size={18} color={c.textMuted} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Status filters */}
-      <ChipRow items={STATUS_FILTERS} selected={statusFilter} onSelect={onStatusChange} />
-
-      {/* Category + Sort row */}
-      <View className="flex-row items-center px-4 pb-2">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1">
-          {CATEGORY_FILTERS.map((item) => (
-            <TouchableOpacity
-              key={item.value}
-              className="mr-2 px-3 py-1.5 rounded-full border"
-              style={{
-                borderColor: categoryFilter === item.value ? "#8b5cf6" : "#e5e7eb",
-                backgroundColor: categoryFilter === item.value ? "#f5f3ff" : "#fff",
-              }}
-              onPress={() => onCategoryChange(item.value)}
-              accessibilityRole="button"
-              accessibilityLabel={`Filter by category: ${item.label}`}
-              accessibilityState={{ selected: categoryFilter === item.value }}
-            >
-              <Text
-                className="text-xs"
-                style={{ color: categoryFilter === item.value ? "#8b5cf6" : "#6b7280" }}
+      {/* Category + Sort in one compact row */}
+      <View style={styles.filtersRow}>
+        {/* Category pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsContainer}
+          style={styles.pillsScroll}
+        >
+          {CATEGORIES.map((cat) => {
+            const isActive = categoryFilter === cat.value;
+            return (
+              <TouchableOpacity
+                key={cat.value}
+                onPress={() => onCategoryChange(cat.value)}
+                activeOpacity={0.7}
+                style={[
+                  styles.pill,
+                  isActive
+                    ? { backgroundColor: c.violet, borderColor: c.violet }
+                    : { backgroundColor: c.surfaceAlt, borderColor: c.borderLight },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Category: ${cat.label}`}
+                accessibilityState={{ selected: isActive }}
               >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Ionicons
+                  name={cat.icon}
+                  size={13}
+                  color={isActive ? "#fff" : c.textTertiary}
+                  style={styles.pillIcon}
+                />
+                <Text
+                  style={[
+                    styles.pillText,
+                    { color: isActive ? "#fff" : c.textBody },
+                    isActive && styles.pillTextActive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
-        {/* Sort */}
-        <View className="flex-row ml-2">
-          {SORT_OPTIONS.map((item) => (
-            <TouchableOpacity
-              key={item.value}
-              className="ml-1 px-2 py-1.5 rounded-md"
-              style={{
-                backgroundColor: sort === item.value ? "#111827" : "#f3f4f6",
-              }}
-              onPress={() => onSortChange(item.value)}
-              accessibilityRole="button"
-              accessibilityLabel={`Sort by: ${item.label}`}
-              accessibilityState={{ selected: sort === item.value }}
-            >
-              <Text
-                className="text-xs"
-                style={{ color: sort === item.value ? "#fff" : "#6b7280" }}
+        {/* Sort divider + selector */}
+        <View style={[styles.sortDivider, { backgroundColor: c.borderLight }]} />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sortContainer}
+        >
+          {SORTS.map((s) => {
+            const isActive = sort === s.value;
+            return (
+              <TouchableOpacity
+                key={s.value}
+                onPress={() => onSortChange(s.value)}
+                activeOpacity={0.7}
+                style={[
+                  styles.sortPill,
+                  isActive
+                    ? { backgroundColor: c.text, borderColor: c.text }
+                    : { backgroundColor: "transparent", borderColor: c.borderLight },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Sort: ${s.label}`}
+                accessibilityState={{ selected: isActive }}
               >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.sortText,
+                    { color: isActive ? c.background : c.textTertiary },
+                    isActive && styles.sortTextActive,
+                  ]}
+                >
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {},
+  searchRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  filtersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 6,
+  },
+  pillsContainer: {
+    paddingLeft: 16,
+    paddingRight: 4,
+    paddingVertical: 2,
+  },
+  pillsScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  pillIcon: {
+    marginRight: 4,
+  },
+  pillText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  pillTextActive: {
+    fontWeight: "600",
+  },
+  sortDivider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 4,
+  },
+  sortContainer: {
+    paddingRight: 16,
+    paddingVertical: 2,
+  },
+  sortPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginRight: 4,
+  },
+  sortText: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  sortTextActive: {
+    fontWeight: "600",
+  },
+});

@@ -6,8 +6,6 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
   TextInput,
 } from "react-native";
 import { showError, showSuccess } from "@/utils/toast";
@@ -25,12 +23,15 @@ import { StatusHistory } from "@/components/request/StatusHistory";
 import { NotesList } from "@/components/notes/NotesList";
 import { NoteInput } from "@/components/notes/NoteInput";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
-import { ChatView } from "@/components/chat/ChatView";
+import { ChatFAB } from "@/components/chat/ChatFAB";
 import { RatingStars } from "@/components/request/RatingStars";
 import { User } from "@/types";
-import { confirmAction } from "@/utils/confirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { useConfirm } from "@/hooks/useConfirm";
+import { useColors } from "@/hooks/useColors";
 
 export default function ManagerRequestDetailScreen() {
+  const c = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { request, loading, error: requestError } = useRequest(id);
@@ -38,8 +39,8 @@ export default function ManagerRequestDetailScreen() {
   const { notes, loading: notesLoading, error: notesError } = useNotes(id);
   const { maintainers, loading: maintainersLoading, error: maintainersError } = useMaintainers();
   const [updating, setUpdating] = useState(false);
-  const [activeTab, setActiveTab] = useState<"messages" | "notes">("messages");
   const [showAssignForm, setShowAssignForm] = useState(false);
+  const { confirm, confirmProps } = useConfirm();
   const [selectedMaintainer, setSelectedMaintainer] = useState<User | null>(null);
   const [assignPhone, setAssignPhone] = useState("");
   const [assignEta, setAssignEta] = useState("");
@@ -83,7 +84,7 @@ export default function ManagerRequestDetailScreen() {
 
   const handlePutOnHold = () => {
     if (!request || !id || !user) return;
-    confirmAction("Put On Hold", "Put this request on hold?", async () => {
+    confirm("Put On Hold", "Put this request on hold?", async () => {
       setUpdating(true);
       try {
         await putOnHold(id, request.status, user.uid, user.name, "manager");
@@ -99,7 +100,7 @@ export default function ManagerRequestDetailScreen() {
 
   const handleResume = () => {
     if (!request || !id || !user) return;
-    confirmAction("Resume Request", "Resume this request?", async () => {
+    confirm("Resume Request", "Resume this request?", async () => {
       setUpdating(true);
       try {
         await resumeRequest(id, "assigned", user.uid, user.name, "manager");
@@ -125,16 +126,16 @@ export default function ManagerRequestDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <ActivityIndicator size="large" color={c.primary} />
       </View>
     );
   }
 
   if (!request) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: requestError ? "#ef4444" : "#6b7280" }}>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <Text style={{ color: requestError ? c.error : c.textTertiary }}>
           {requestError ? `Error: ${requestError.message}` : "Request not found"}
         </Text>
       </View>
@@ -142,41 +143,36 @@ export default function ManagerRequestDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <View style={{ flex: 1, backgroundColor: c.background }}>
       <Stack.Screen options={{ headerShown: true, title: "Manage Request" }} />
       <ScrollView
-        className="bg-white"
-        contentContainerStyle={{ padding: 20, paddingBottom: 0 }}
-        style={{ maxHeight: "45%" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 80 }}
       >
         <StatusTimeline currentStatus={request.status} />
 
         <View
           className="flex-row items-center px-3 py-2 rounded-lg mt-2 mb-2"
-          style={{ backgroundColor: "#f9fafb" }}
+          style={{ backgroundColor: c.surface }}
         >
-          <Text className="text-sm" style={{ color: "#6b7280" }}>
+          <Text className="text-sm" style={{ color: c.textTertiary }}>
             By{" "}
-            <Text className="font-semibold" style={{ color: "#374151" }}>
+            <Text className="font-semibold" style={{ color: c.textSecondary }}>
               {request.tenantName}
             </Text>
           </Text>
         </View>
 
-        <Text className="text-xl font-bold" style={{ color: "#111827" }}>
+        <Text className="text-xl font-bold" style={{ color: c.text }}>
           {request.title}
         </Text>
         <View className="flex-row items-center mt-2">
-          <View className="px-3 py-1 rounded-md mr-2" style={{ backgroundColor: "#f3f4f6" }}>
-            <Text className="text-xs" style={{ color: "#374151" }}>{request.category}</Text>
+          <View className="px-3 py-1 rounded-md mr-2" style={{ backgroundColor: c.surfaceAlt }}>
+            <Text className="text-xs" style={{ color: c.textSecondary }}>{request.category}</Text>
           </View>
           {request.priority && <PriorityBadge priority={request.priority} />}
         </View>
-        <Text className="text-base mt-3 leading-6" style={{ color: "#4b5563" }}>
+        <Text className="text-base mt-3 leading-6" style={{ color: c.textBody }}>
           {request.description}
         </Text>
 
@@ -191,18 +187,18 @@ export default function ManagerRequestDetailScreen() {
 
         {/* Assignee Info */}
         {request.assignedToName && (
-          <View className="mt-3 p-3 rounded-lg" style={{ backgroundColor: "#eff6ff" }}>
-            <Text className="text-xs font-medium" style={{ color: "#3b82f6" }}>Assigned To</Text>
-            <Text className="text-sm font-semibold mt-0.5" style={{ color: "#111827" }}>
+          <View className="mt-3 p-3 rounded-lg" style={{ backgroundColor: c.primaryBg }}>
+            <Text className="text-xs font-medium" style={{ color: c.primary }}>Assigned To</Text>
+            <Text className="text-sm font-semibold mt-0.5" style={{ color: c.text }}>
               {request.assignedToName}
             </Text>
             {request.assignedToPhone ? (
-              <Text className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
                 {request.assignedToPhone}
               </Text>
             ) : null}
             {request.estimatedArrival ? (
-              <Text className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
                 ETA: {request.estimatedArrival}
               </Text>
             ) : null}
@@ -215,7 +211,7 @@ export default function ManagerRequestDetailScreen() {
             {!showAssignForm ? (
               <TouchableOpacity
                 className="rounded-xl py-3 items-center"
-                style={{ backgroundColor: "#3b82f6" }}
+                style={{ backgroundColor: c.primary }}
                 onPress={() => setShowAssignForm(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Assign request"
@@ -224,18 +220,18 @@ export default function ManagerRequestDetailScreen() {
                 <Text className="text-white text-sm font-semibold">Assign Request</Text>
               </TouchableOpacity>
             ) : (
-              <View className="rounded-xl p-3 border" style={{ borderColor: "#d1d5db" }}>
-                <Text className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>
+              <View className="rounded-xl p-3 border" style={{ borderColor: c.border }}>
+                <Text className="text-sm font-semibold mb-2" style={{ color: c.textSecondary }}>
                   Select Maintainer
                 </Text>
                 {maintainersLoading ? (
-                  <ActivityIndicator size="small" color="#3b82f6" style={{ marginBottom: 8 }} />
+                  <ActivityIndicator size="small" color={c.primary} style={{ marginBottom: 8 }} />
                 ) : maintainersError ? (
-                  <Text className="text-xs mb-2" style={{ color: "#ef4444" }}>
+                  <Text className="text-xs mb-2" style={{ color: c.error }}>
                     Failed to load maintainers
                   </Text>
                 ) : maintainers.length === 0 ? (
-                  <Text className="text-xs mb-2" style={{ color: "#9ca3af" }}>
+                  <Text className="text-xs mb-2" style={{ color: c.textMuted }}>
                     No maintainers registered yet
                   </Text>
                 ) : (
@@ -244,9 +240,9 @@ export default function ManagerRequestDetailScreen() {
                       key={m.uid}
                       className="flex-row items-center p-2 rounded-lg mb-1"
                       style={{
-                        backgroundColor: selectedMaintainer?.uid === m.uid ? "#eff6ff" : "#f9fafb",
+                        backgroundColor: selectedMaintainer?.uid === m.uid ? c.primaryBg : c.surface,
                         borderWidth: selectedMaintainer?.uid === m.uid ? 1 : 0,
-                        borderColor: "#3b82f6",
+                        borderColor: c.primary,
                       }}
                       onPress={() => {
                         setSelectedMaintainer(m);
@@ -258,18 +254,18 @@ export default function ManagerRequestDetailScreen() {
                     >
                       <View
                         className="w-8 h-8 rounded-full items-center justify-center mr-2"
-                        style={{ backgroundColor: "#dbeafe" }}
+                        style={{ backgroundColor: c.primaryBadgeBg }}
                       >
-                        <Text className="text-xs font-bold" style={{ color: "#3b82f6" }}>
+                        <Text className="text-xs font-bold" style={{ color: c.primary }}>
                           {m.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View className="flex-1">
-                        <Text className="text-sm font-medium" style={{ color: "#111827" }}>
+                        <Text className="text-sm font-medium" style={{ color: c.text }}>
                           {m.name}
                         </Text>
                         {m.phone ? (
-                          <Text className="text-xs" style={{ color: "#6b7280" }}>{m.phone}</Text>
+                          <Text className="text-xs" style={{ color: c.textTertiary }}>{m.phone}</Text>
                         ) : null}
                       </View>
                     </TouchableOpacity>
@@ -279,9 +275,9 @@ export default function ManagerRequestDetailScreen() {
                   <View className="mt-2">
                     <TextInput
                       className="border rounded-lg px-3 py-2 text-sm mb-2"
-                      style={{ borderColor: "#d1d5db", color: "#111827" }}
+                      style={{ borderColor: c.border, color: c.text }}
                       placeholder="Phone (optional)"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={c.textMuted}
                       value={assignPhone}
                       onChangeText={setAssignPhone}
                       keyboardType="phone-pad"
@@ -290,9 +286,9 @@ export default function ManagerRequestDetailScreen() {
                     />
                     <TextInput
                       className="border rounded-lg px-3 py-2 text-sm mb-2"
-                      style={{ borderColor: "#d1d5db", color: "#111827" }}
+                      style={{ borderColor: c.border, color: c.text }}
                       placeholder="ETA (e.g. Today 3PM)"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={c.textMuted}
                       value={assignEta}
                       onChangeText={setAssignEta}
                       accessibilityLabel="Estimated time of arrival"
@@ -300,7 +296,7 @@ export default function ManagerRequestDetailScreen() {
                     />
                     <TouchableOpacity
                       className="rounded-xl py-3 items-center"
-                      style={{ backgroundColor: updating ? "#93c5fd" : "#3b82f6" }}
+                      style={{ backgroundColor: updating ? c.primaryLight : c.primary }}
                       onPress={handleAssign}
                       disabled={updating}
                       accessibilityRole="button"
@@ -328,7 +324,7 @@ export default function ManagerRequestDetailScreen() {
                   accessibilityLabel="Cancel assignment"
                   testID="cancel-assignment-button"
                 >
-                  <Text className="text-sm" style={{ color: "#6b7280" }}>Cancel</Text>
+                  <Text className="text-sm" style={{ color: c.textTertiary }}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -339,7 +335,7 @@ export default function ManagerRequestDetailScreen() {
         {(request.status === "assigned" || request.status === "in_progress") && (
           <TouchableOpacity
             className="rounded-xl py-3 items-center mt-4 border"
-            style={{ borderColor: "#c4b5fd", backgroundColor: updating ? "#f5f3ff" : "#fff" }}
+            style={{ borderColor: c.violetBorder, backgroundColor: updating ? c.violetBg : c.background }}
             onPress={handlePutOnHold}
             disabled={updating}
             accessibilityRole="button"
@@ -348,9 +344,9 @@ export default function ManagerRequestDetailScreen() {
             testID="put-on-hold-button"
           >
             {updating ? (
-              <ActivityIndicator color="#8b5cf6" />
+              <ActivityIndicator color={c.violet} />
             ) : (
-              <Text className="text-sm font-semibold" style={{ color: "#8b5cf6" }}>
+              <Text className="text-sm font-semibold" style={{ color: c.violet }}>
                 Put On Hold
               </Text>
             )}
@@ -360,7 +356,7 @@ export default function ManagerRequestDetailScreen() {
         {request.status === "on_hold" && (
           <TouchableOpacity
             className="rounded-xl py-3 items-center mt-4"
-            style={{ backgroundColor: updating ? "#d1d5db" : "#3b82f6" }}
+            style={{ backgroundColor: updating ? c.border : c.primary }}
             onPress={handleResume}
             disabled={updating}
             accessibilityRole="button"
@@ -380,87 +376,45 @@ export default function ManagerRequestDetailScreen() {
         <StatusHistory history={request.statusHistory} />
 
         {request.status === "completed" && (
-          <View className="mt-4 p-4 rounded-xl" style={{ backgroundColor: "#f0fdf4" }}>
-            <Text className="text-sm font-semibold mb-1" style={{ color: "#22c55e" }}>
+          <View className="mt-4 p-4 rounded-xl" style={{ backgroundColor: c.successBg }}>
+            <Text className="text-sm font-semibold mb-1" style={{ color: c.success }}>
               Completed
             </Text>
             {request.rating ? (
               <View className="mt-2">
-                <Text className="text-xs mb-1" style={{ color: "#6b7280" }}>Tenant Rating</Text>
+                <Text className="text-xs mb-1" style={{ color: c.textTertiary }}>Tenant Rating</Text>
                 <RatingStars rating={request.rating} readonly size={20} />
                 {request.ratingComment ? (
-                  <Text className="text-xs mt-1" style={{ color: "#6b7280" }}>
+                  <Text className="text-xs mt-1" style={{ color: c.textTertiary }}>
                     &quot;{request.ratingComment}&quot;
                   </Text>
                 ) : null}
               </View>
             ) : (
-              <Text className="text-xs" style={{ color: "#6b7280" }}>Awaiting tenant rating</Text>
+              <Text className="text-xs" style={{ color: c.textTertiary }}>Awaiting tenant rating</Text>
             )}
           </View>
         )}
+
+        {/* Internal Notes — inline in the scroll (manager-only feature) */}
+        <View className="mt-6">
+          <Text className="text-sm font-semibold mb-2" style={{ color: c.textSecondary }}>
+            Internal Notes ({notes.length})
+          </Text>
+          <NotesList notes={notes} loading={notesLoading} error={notesError} />
+          <NoteInput onSubmit={handleAddNote} />
+        </View>
       </ScrollView>
 
-      {/* Messages / Notes tabs */}
-      <View className="flex-1 border-t" style={{ borderTopColor: "#e5e7eb" }}>
-        <View className="flex-row" style={{ backgroundColor: "#f9fafb" }}>
-          <TouchableOpacity
-            className="flex-1 py-2.5 items-center"
-            style={{
-              borderBottomWidth: 2,
-              borderBottomColor: activeTab === "messages" ? "#3b82f6" : "transparent",
-            }}
-            onPress={() => setActiveTab("messages")}
-            accessibilityRole="button"
-            accessibilityLabel="Messages tab"
-            accessibilityState={{ selected: activeTab === "messages" }}
-            testID="manager-messages-tab"
-          >
-            <Text
-              className="text-sm font-medium"
-              style={{ color: activeTab === "messages" ? "#3b82f6" : "#6b7280" }}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-1 py-2.5 items-center"
-            style={{
-              borderBottomWidth: 2,
-              borderBottomColor: activeTab === "notes" ? "#f59e0b" : "transparent",
-            }}
-            onPress={() => setActiveTab("notes")}
-            accessibilityRole="button"
-            accessibilityLabel={`Notes tab, ${notes.length} notes`}
-            accessibilityState={{ selected: activeTab === "notes" }}
-            testID="manager-notes-tab"
-          >
-            <Text
-              className="text-sm font-medium"
-              style={{ color: activeTab === "notes" ? "#f59e0b" : "#6b7280" }}
-            >
-              Notes ({notes.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === "messages" ? (
-          <ChatView
-            messages={messages}
-            currentUserId={user?.uid ?? ""}
-            loading={messagesLoading}
-            error={messagesError}
-            onSend={handleSend}
-          />
-        ) : (
-          <View className="flex-1">
-            <ScrollView className="flex-1 px-3 pt-2">
-              <NotesList notes={notes} loading={notesLoading} error={notesError} />
-            </ScrollView>
-            <NoteInput onSubmit={handleAddNote} />
-          </View>
-        )}
-      </View>
-    </KeyboardAvoidingView>
+      {/* Chat FAB + bottom sheet overlay */}
+      <ChatFAB
+        messages={messages}
+        currentUserId={user?.uid ?? ""}
+        loading={messagesLoading}
+        error={messagesError}
+        onSend={handleSend}
+      />
+      <ConfirmModal {...confirmProps} />
+    </View>
   );
 }

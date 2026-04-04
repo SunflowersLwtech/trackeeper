@@ -1,20 +1,22 @@
 import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
+import { useColors } from "@/hooks/useColors";
 
 export default function ManagerLayout() {
   const { user } = useAuth();
+  const c = useColors();
   if (!user) return <Redirect href="/(auth)/login" />;
   if (user.role !== "manager") return <Redirect href="/(tenant)" />;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#3b82f6",
-        tabBarInactiveTintColor: "#9ca3af",
-        tabBarStyle: { borderTopColor: "#e5e7eb" },
-        headerStyle: { backgroundColor: "#fff" },
-        headerTintColor: "#111827",
+        tabBarActiveTintColor: c.primary,
+        tabBarInactiveTintColor: c.tabIconDefault,
+        tabBarStyle: { borderTopColor: c.borderLight },
+        headerStyle: { backgroundColor: c.background },
+        headerTintColor: c.text,
         headerShadowVisible: false,
       }}
     >

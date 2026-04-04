@@ -14,8 +14,10 @@ import { signUp } from "@/services/auth";
 // Tenant-only public registration; manager/maintainer provisioned by admin
 import { validateEmail, validatePassword, validateName } from "@/utils/validation";
 import { showError } from "@/utils/toast";
+import { useColors } from "@/hooks/useColors";
 
 export default function RegisterScreen() {
+  const c = useColors();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,25 +53,25 @@ export default function RegisterScreen() {
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="flex-1 justify-center px-8 bg-white">
+        <View className="flex-1 justify-center px-8" style={{ backgroundColor: c.background }}>
           {/* Header */}
           <View className="items-center mb-10">
-            <Text className="text-3xl font-bold" style={{ color: "#3b82f6" }}>
+            <Text className="text-3xl font-bold" style={{ color: c.primary }}>
               Create Account
             </Text>
-            <Text className="text-sm mt-1" style={{ color: "#6b7280" }}>
+            <Text className="text-sm mt-1" style={{ color: c.textTertiary }}>
               Join TracKeeper
             </Text>
           </View>
 
           {/* Name */}
           <View className="mb-4">
-            <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Name</Text>
+            <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Name</Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Your full name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={name}
               onChangeText={setName}
               accessibilityLabel="Full name"
@@ -79,12 +81,12 @@ export default function RegisterScreen() {
 
           {/* Email */}
           <View className="mb-4">
-            <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Email</Text>
+            <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Email</Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="your@email.com"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -99,12 +101,12 @@ export default function RegisterScreen() {
 
           {/* Password */}
           <View className="mb-4">
-            <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>Password</Text>
+            <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Password</Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="At least 6 characters"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -117,25 +119,25 @@ export default function RegisterScreen() {
           </View>
 
           {/* Role Info */}
-          <View className="mb-4 p-3 rounded-xl" style={{ backgroundColor: "#f9fafb" }}>
-            <Text className="text-sm font-medium" style={{ color: "#374151" }}>
-              Registering as: <Text style={{ color: "#3b82f6" }}>Tenant</Text>
+          <View className="mb-4 p-3 rounded-xl" style={{ backgroundColor: c.surface }}>
+            <Text className="text-sm font-medium" style={{ color: c.textSecondary }}>
+              Registering as: <Text style={{ color: c.primary }}>Tenant</Text>
             </Text>
-            <Text className="text-xs mt-1" style={{ color: "#9ca3af" }}>
+            <Text className="text-xs mt-1" style={{ color: c.textMuted }}>
               Manager and Maintainer accounts are provisioned by your property administrator.
             </Text>
           </View>
 
           {/* Unit Number */}
           <View className="mb-6">
-            <Text className="text-sm font-medium mb-1" style={{ color: "#374151" }}>
+            <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>
               Unit Number
             </Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="e.g. A-12-03"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={unitNumber}
               onChangeText={setUnitNumber}
               accessibilityLabel="Unit number"
@@ -146,7 +148,7 @@ export default function RegisterScreen() {
           {/* Register Button */}
           <TouchableOpacity
             className="rounded-xl py-4 items-center mb-4"
-            style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
+            style={{ backgroundColor: loading ? c.primaryLight : c.primary }}
             onPress={handleRegister}
             disabled={loading}
             accessibilityRole="button"
@@ -155,7 +157,7 @@ export default function RegisterScreen() {
             testID="register-submit-button"
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={c.background} />
             ) : (
               <Text className="text-white text-base font-semibold">Create Account</Text>
             )}
@@ -169,9 +171,9 @@ export default function RegisterScreen() {
             accessibilityLabel="Go to sign in"
             testID="register-signin-link"
           >
-            <Text style={{ color: "#6b7280" }}>
+            <Text style={{ color: c.textTertiary }}>
               Already have an account?{" "}
-              <Text className="font-semibold" style={{ color: "#3b82f6" }}>Sign In</Text>
+              <Text className="font-semibold" style={{ color: c.primary }}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </View>

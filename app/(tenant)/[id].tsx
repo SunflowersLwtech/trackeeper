@@ -4,8 +4,6 @@ import {
   Text,
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -19,19 +17,23 @@ import { sendMessage } from "@/services/messages";
 import { cancelRequest, rateRequest } from "@/services/requests";
 import { canCancel } from "@/utils/status";
 import { showSuccess, showError } from "@/utils/toast";
-import { confirmAction } from "@/utils/confirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { useConfirm } from "@/hooks/useConfirm";
 import { StatusTimeline } from "@/components/request/StatusTimeline";
 import { StatusHistory } from "@/components/request/StatusHistory";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
-import { ChatView } from "@/components/chat/ChatView";
+import { ChatFAB } from "@/components/chat/ChatFAB";
 import { RatingStars } from "@/components/request/RatingStars";
+import { useColors } from "@/hooks/useColors";
 
 export default function TenantRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const c = useColors();
   const { request, loading, error: requestError } = useRequest(id);
   const { messages, loading: messagesLoading, error: messagesError } = useMessages(id);
   const [cancelling, setCancelling] = useState(false);
+  const { confirm, confirmProps } = useConfirm();
   const [pendingRating, setPendingRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
@@ -47,8 +49,8 @@ export default function TenantRequestDetailScreen() {
   };
 
   const handleCancel = () => {
-    if (!request || !id || !user) return;
-    confirmAction(
+    if (!request || !id || !user || cancelling) return;
+    confirm(
       "Cancel Request",
       "Are you sure you want to cancel this request? This cannot be undone.",
       async () => {
@@ -85,16 +87,16 @@ export default function TenantRequestDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <ActivityIndicator size="large" color={c.primary} />
       </View>
     );
   }
 
   if (!request) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text style={{ color: requestError ? "#ef4444" : "#6b7280" }}>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
+        <Text style={{ color: requestError ? c.error : c.textTertiary }}>
           {requestError ? `Error: ${requestError.message}` : "Request not found"}
         </Text>
       </View>
@@ -102,47 +104,42 @@ export default function TenantRequestDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <View style={{ flex: 1, backgroundColor: c.background }}>
       <Stack.Screen options={{ headerShown: true, title: "Request Detail" }} />
       <ScrollView
-        className="bg-white"
-        contentContainerStyle={{ padding: 20, paddingBottom: 0 }}
-        style={{ maxHeight: "50%" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 80 }}
       >
         <StatusTimeline currentStatus={request.status} />
 
         {/* Title + Edit */}
         <View className="flex-row items-start justify-between mt-4">
-          <Text className="text-xl font-bold flex-1 mr-2" style={{ color: "#111827" }}>
+          <Text className="text-xl font-bold flex-1 mr-2" style={{ color: c.text }}>
             {request.title}
           </Text>
           {request.status === "submitted" && (
             <TouchableOpacity
               className="flex-row items-center px-3 py-1.5 rounded-lg border"
-              style={{ borderColor: "#d1d5db" }}
+              style={{ borderColor: c.border }}
               onPress={() => router.push(`/(tenant)/edit/${id}`)}
               accessibilityRole="button"
               accessibilityLabel="Edit request"
               testID="tenant-edit-button"
             >
-              <Ionicons name="pencil-outline" size={14} color="#3b82f6" />
-              <Text className="text-xs ml-1 font-medium" style={{ color: "#3b82f6" }}>Edit</Text>
+              <Ionicons name="pencil-outline" size={14} color={c.primary} />
+              <Text className="text-xs ml-1 font-medium" style={{ color: c.primary }}>Edit</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <View className="flex-row items-center mt-2">
-          <View className="px-3 py-1 rounded-md mr-2" style={{ backgroundColor: "#f3f4f6" }}>
-            <Text className="text-xs" style={{ color: "#374151" }}>{request.category}</Text>
+          <View className="px-3 py-1 rounded-md mr-2" style={{ backgroundColor: c.surfaceAlt }}>
+            <Text className="text-xs" style={{ color: c.textSecondary }}>{request.category}</Text>
           </View>
           {request.priority && <PriorityBadge priority={request.priority} />}
         </View>
 
-        <Text className="text-base mt-4 leading-6" style={{ color: "#4b5563" }}>
+        <Text className="text-base mt-4 leading-6" style={{ color: c.textBody }}>
           {request.description}
         </Text>
         {request.imageUrl ? (
@@ -156,18 +153,18 @@ export default function TenantRequestDetailScreen() {
 
         {/* Assignee Info */}
         {request.assignedToName && (
-          <View className="mt-4 p-3 rounded-lg" style={{ backgroundColor: "#eff6ff" }}>
-            <Text className="text-xs font-medium" style={{ color: "#3b82f6" }}>Your Technician</Text>
-            <Text className="text-sm font-semibold mt-0.5" style={{ color: "#111827" }}>
+          <View className="mt-4 p-3 rounded-lg" style={{ backgroundColor: c.primaryBg }}>
+            <Text className="text-xs font-medium" style={{ color: c.primary }}>Your Technician</Text>
+            <Text className="text-sm font-semibold mt-0.5" style={{ color: c.text }}>
               {request.assignedToName}
             </Text>
             {request.assignedToPhone ? (
-              <Text className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
                 {request.assignedToPhone}
               </Text>
             ) : null}
             {request.estimatedArrival ? (
-              <Text className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
                 ETA: {request.estimatedArrival}
               </Text>
             ) : null}
@@ -178,7 +175,7 @@ export default function TenantRequestDetailScreen() {
         {canCancel(request.status) && (
           <TouchableOpacity
             className="rounded-xl py-3 items-center mt-4 border"
-            style={{ borderColor: "#fecaca", backgroundColor: cancelling ? "#fef2f2" : "#fff" }}
+            style={{ borderColor: c.errorBorder, backgroundColor: cancelling ? c.errorBg : c.background }}
             onPress={handleCancel}
             disabled={cancelling}
             accessibilityRole="button"
@@ -187,9 +184,9 @@ export default function TenantRequestDetailScreen() {
             testID="cancel-request-button"
           >
             {cancelling ? (
-              <ActivityIndicator color="#ef4444" />
+              <ActivityIndicator color={c.error} />
             ) : (
-              <Text className="text-sm font-semibold" style={{ color: "#ef4444" }}>
+              <Text className="text-sm font-semibold" style={{ color: c.error }}>
                 Cancel Request
               </Text>
             )}
@@ -201,22 +198,22 @@ export default function TenantRequestDetailScreen() {
 
         {/* Rating - show when completed */}
         {request.status === "completed" && (
-          <View className="mt-4 p-4 rounded-xl" style={{ backgroundColor: "#f9fafb" }}>
+          <View className="mt-4 p-4 rounded-xl" style={{ backgroundColor: c.surface }}>
             {request.rating ? (
               <View>
-                <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>
+                <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
                   Your Rating
                 </Text>
                 <RatingStars rating={request.rating} readonly />
                 {request.ratingComment ? (
-                  <Text className="text-sm mt-2" style={{ color: "#6b7280" }}>
+                  <Text className="text-sm mt-2" style={{ color: c.textTertiary }}>
                     {request.ratingComment}
                   </Text>
                 ) : null}
               </View>
             ) : (
               <View>
-                <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>
+                <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
                   Rate this service
                 </Text>
                 <RatingStars rating={pendingRating} onRate={setPendingRating} />
@@ -224,9 +221,9 @@ export default function TenantRequestDetailScreen() {
                   <View className="mt-3">
                     <TextInput
                       className="border rounded-xl px-3 py-2 text-sm"
-                      style={{ borderColor: "#d1d5db", color: "#111827" }}
+                      style={{ borderColor: c.border, color: c.text }}
                       placeholder="Add a comment (optional)"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={c.textMuted}
                       value={ratingComment}
                       onChangeText={setRatingComment}
                       accessibilityLabel="Rating comment"
@@ -235,7 +232,7 @@ export default function TenantRequestDetailScreen() {
                     />
                     <TouchableOpacity
                       className="rounded-xl py-2.5 items-center mt-2"
-                      style={{ backgroundColor: submittingRating ? "#93c5fd" : "#3b82f6" }}
+                      style={{ backgroundColor: submittingRating ? c.primaryLight : c.primary }}
                       onPress={handleRate}
                       disabled={submittingRating}
                       accessibilityRole="button"
@@ -244,9 +241,9 @@ export default function TenantRequestDetailScreen() {
                       testID="submit-rating-button"
                     >
                       {submittingRating ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={c.background} size="small" />
                       ) : (
-                        <Text className="text-white text-sm font-semibold">Submit Rating</Text>
+                        <Text className="text-sm font-semibold" style={{ color: c.background }}>Submit Rating</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -257,19 +254,15 @@ export default function TenantRequestDetailScreen() {
         )}
       </ScrollView>
 
-      {/* Chat section */}
-      <View className="flex-1 border-t" style={{ borderTopColor: "#e5e7eb" }}>
-        <View className="px-4 py-2" style={{ backgroundColor: "#f9fafb" }}>
-          <Text className="text-sm font-medium" style={{ color: "#374151" }}>Messages</Text>
-        </View>
-        <ChatView
-          messages={messages}
-          currentUserId={user?.uid ?? ""}
-          loading={messagesLoading}
-          error={messagesError}
-          onSend={handleSend}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      {/* Chat FAB + bottom sheet overlay */}
+      <ChatFAB
+        messages={messages}
+        currentUserId={user?.uid ?? ""}
+        loading={messagesLoading}
+        error={messagesError}
+        onSend={handleSend}
+      />
+      <ConfirmModal {...confirmProps} />
+    </View>
   );
 }

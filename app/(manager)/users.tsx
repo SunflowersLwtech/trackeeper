@@ -15,8 +15,11 @@ import { createStaffUser, subscribeToUsersByRole } from "@/services/users";
 import { User } from "@/types";
 import { WebContainer } from "@/components/ui/WebContainer";
 import { Unsubscribe } from "firebase/firestore";
+import { useColors } from "@/hooks/useColors";
+import { validateEmail, validatePassword, validateName } from "@/utils/validation";
 
 export default function UserManagementScreen() {
+  const c = useColors();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,18 +58,12 @@ export default function UserManagementScreen() {
   }, []);
 
   const handleCreate = async () => {
-    if (!name.trim() || name.trim().length < 2) {
-      showError("Validation", "Name must be at least 2 characters");
-      return;
-    }
-    if (!email.trim() || !email.includes("@")) {
-      showError("Validation", "Please enter a valid email");
-      return;
-    }
-    if (!password || password.length < 6) {
-      showError("Validation", "Password must be at least 6 characters");
-      return;
-    }
+    const nameErr = validateName(name);
+    if (nameErr) { showError("Validation", nameErr); return; }
+    const emailErr = validateEmail(email);
+    if (emailErr) { showError("Validation", emailErr); return; }
+    const passErr = validatePassword(password);
+    if (passErr) { showError("Validation", passErr); return; }
 
     setCreating(true);
     try {
@@ -90,33 +87,39 @@ export default function UserManagementScreen() {
   const renderUser = ({ item }: { item: User }) => (
     <View
       className="flex-row items-center p-3 mb-2 rounded-xl border"
-      style={{ borderColor: "#e5e7eb" }}
+      style={{ borderColor: c.borderLight }}
     >
       <View
         className="w-10 h-10 rounded-full items-center justify-center mr-3"
-        style={{ backgroundColor: item.role === "manager" ? "#fef3c7" : "#dbeafe" }}
+        style={{ backgroundColor: item.role === "manager" ? c.warningBadgeBg : c.primaryBadgeBg }}
       >
         <Text
           className="text-sm font-bold"
-          style={{ color: item.role === "manager" ? "#f59e0b" : "#3b82f6" }}
+          style={{ color: item.role === "manager" ? c.warning : c.primary }}
         >
           {item.name.charAt(0).toUpperCase()}
         </Text>
       </View>
       <View className="flex-1">
-        <Text className="text-sm font-semibold" style={{ color: "#111827" }}>{item.name}</Text>
-        <Text className="text-xs" style={{ color: "#6b7280" }}>{item.email}</Text>
+        <Text className="text-sm font-semibold" style={{ color: c.text }}>{item.name}</Text>
+        <Text className="text-xs" style={{ color: c.textTertiary }} numberOfLines={1} ellipsizeMode="tail">{item.email}</Text>
         {item.phone ? (
-          <Text className="text-xs" style={{ color: "#9ca3af" }}>{item.phone}</Text>
+          <Text className="text-xs" style={{ color: c.textMuted }}>{item.phone}</Text>
         ) : null}
       </View>
       <View
-        className="px-2 py-1 rounded-md"
-        style={{ backgroundColor: item.role === "manager" ? "#fef3c7" : "#dbeafe" }}
+        className="flex-row items-center px-2 py-1 rounded-md"
+        style={{ backgroundColor: item.role === "manager" ? c.warningBadgeBg : c.primaryBadgeBg }}
       >
+        <Ionicons
+          name={item.role === "manager" ? "shield-outline" : "construct-outline"}
+          size={12}
+          color={item.role === "manager" ? c.warningTextDark : c.primaryDark}
+          style={{ marginRight: 4 }}
+        />
         <Text
           className="text-xs font-medium"
-          style={{ color: item.role === "manager" ? "#92400e" : "#1e40af" }}
+          style={{ color: item.role === "manager" ? c.warningTextDark : c.primaryDark }}
         >
           {item.role === "manager" ? "Manager" : "Maintainer"}
         </Text>
@@ -127,7 +130,7 @@ export default function UserManagementScreen() {
   return (
     <WebContainer>
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#fff" }}
+      style={{ flex: 1, backgroundColor: c.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -135,14 +138,14 @@ export default function UserManagementScreen() {
         {!showForm && (
           <TouchableOpacity
             className="rounded-xl py-3 items-center mb-4"
-            style={{ backgroundColor: "#3b82f6" }}
+            style={{ backgroundColor: c.primary }}
             onPress={() => setShowForm(true)}
             accessibilityRole="button"
             accessibilityLabel="Create new staff account"
             testID="create-staff-button"
           >
             <View className="flex-row items-center">
-              <Ionicons name="person-add-outline" size={18} color="#fff" />
+              <Ionicons name="person-add-outline" size={18} color={c.background} />
               <Text className="text-white text-sm font-semibold ml-2">Create Staff Account</Text>
             </View>
           </TouchableOpacity>
@@ -150,18 +153,28 @@ export default function UserManagementScreen() {
 
         {/* Creation form */}
         {showForm && (
-          <View className="rounded-xl p-4 mb-4 border" style={{ borderColor: "#d1d5db" }}>
-            <Text className="text-base font-semibold mb-3" style={{ color: "#111827" }}>
+          <View className="rounded-xl p-4 mb-4 border" style={{ borderColor: c.border }}>
+            <Text className="text-base font-semibold mb-3" style={{ color: c.text }}>
               New Staff Account
             </Text>
 
             {/* Role selector */}
-            <View className="flex-row mb-3">
+            <View
+              style={{
+                flexDirection: "row",
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: c.primary,
+                overflow: "hidden",
+                marginBottom: 12,
+              }}
+            >
               <TouchableOpacity
-                className="flex-1 py-2 items-center rounded-l-xl border"
                 style={{
-                  backgroundColor: role === "maintainer" ? "#3b82f6" : "#fff",
-                  borderColor: "#3b82f6",
+                  flex: 1,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                  backgroundColor: role === "maintainer" ? c.primary : c.background,
                 }}
                 onPress={() => setRole("maintainer")}
                 accessibilityRole="button"
@@ -169,17 +182,22 @@ export default function UserManagementScreen() {
                 accessibilityState={{ selected: role === "maintainer" }}
               >
                 <Text
-                  className="text-sm font-medium"
-                  style={{ color: role === "maintainer" ? "#fff" : "#3b82f6" }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    color: role === "maintainer" ? c.background : c.primary,
+                  }}
                 >
                   Maintainer
                 </Text>
               </TouchableOpacity>
+              <View style={{ width: 1.5, backgroundColor: c.primary }} />
               <TouchableOpacity
-                className="flex-1 py-2 items-center rounded-r-xl border"
                 style={{
-                  backgroundColor: role === "manager" ? "#3b82f6" : "#fff",
-                  borderColor: "#3b82f6",
+                  flex: 1,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                  backgroundColor: role === "manager" ? c.primary : c.background,
                 }}
                 onPress={() => setRole("manager")}
                 accessibilityRole="button"
@@ -187,8 +205,11 @@ export default function UserManagementScreen() {
                 accessibilityState={{ selected: role === "manager" }}
               >
                 <Text
-                  className="text-sm font-medium"
-                  style={{ color: role === "manager" ? "#fff" : "#3b82f6" }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    color: role === "manager" ? c.background : c.primary,
+                  }}
                 >
                   Manager
                 </Text>
@@ -197,9 +218,9 @@ export default function UserManagementScreen() {
 
             <TextInput
               className="border rounded-xl px-4 py-3 text-sm mb-2"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Full name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={name}
               onChangeText={setName}
               accessibilityLabel="Full name"
@@ -207,9 +228,9 @@ export default function UserManagementScreen() {
             />
             <TextInput
               className="border rounded-xl px-4 py-3 text-sm mb-2"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Email"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -219,9 +240,9 @@ export default function UserManagementScreen() {
             />
             <TextInput
               className="border rounded-xl px-4 py-3 text-sm mb-2"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Password (min 6 chars)"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -230,9 +251,9 @@ export default function UserManagementScreen() {
             />
             <TextInput
               className="border rounded-xl px-4 py-3 text-sm mb-3"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Phone (optional)"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
@@ -242,7 +263,7 @@ export default function UserManagementScreen() {
 
             <TouchableOpacity
               className="rounded-xl py-3 items-center mb-2"
-              style={{ backgroundColor: creating ? "#93c5fd" : "#3b82f6" }}
+              style={{ backgroundColor: creating ? c.primaryLight : c.primary }}
               onPress={handleCreate}
               disabled={creating}
               accessibilityRole="button"
@@ -251,7 +272,7 @@ export default function UserManagementScreen() {
               testID="confirm-create-staff-button"
             >
               {creating ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={c.background} />
               ) : (
                 <Text className="text-white text-sm font-semibold">Create Account</Text>
               )}
@@ -263,19 +284,19 @@ export default function UserManagementScreen() {
               accessibilityRole="button"
               accessibilityLabel="Cancel"
             >
-              <Text className="text-sm" style={{ color: "#6b7280" }}>Cancel</Text>
+              <Text className="text-sm" style={{ color: c.textTertiary }}>Cancel</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Staff list */}
         {loading ? (
-          <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color={c.primary} style={{ marginTop: 20 }} />
         ) : (
           <>
             {managers.length > 0 && (
               <View className="mb-4">
-                <Text className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>
+                <Text className="text-sm font-semibold mb-2" style={{ color: c.textSecondary }}>
                   Managers ({managers.length})
                 </Text>
                 {managers.map((m) => (
@@ -284,11 +305,11 @@ export default function UserManagementScreen() {
               </View>
             )}
             <View>
-              <Text className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>
+              <Text className="text-sm font-semibold mb-2" style={{ color: c.textSecondary }}>
                 Maintainers ({maintainers.length})
               </Text>
               {maintainers.length === 0 ? (
-                <Text className="text-sm py-4 text-center" style={{ color: "#9ca3af" }}>
+                <Text className="text-sm py-4 text-center" style={{ color: c.textMuted }}>
                   No maintainers yet
                 </Text>
               ) : (

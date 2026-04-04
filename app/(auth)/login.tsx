@@ -13,8 +13,10 @@ import { router } from "expo-router";
 import { signIn } from "@/services/auth";
 import { validateEmail, validatePassword } from "@/utils/validation";
 import { showError } from "@/utils/toast";
+import { useColors } from "@/hooks/useColors";
 
 export default function LoginScreen() {
+  const c = useColors();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,27 +54,27 @@ export default function LoginScreen() {
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="flex-1 justify-center px-8 bg-white">
+        <View className="flex-1 justify-center px-8" style={{ backgroundColor: c.background }}>
           {/* Header */}
           <View className="items-center mb-12">
-            <Text className="text-4xl font-bold" style={{ color: "#3b82f6" }}>
+            <Text className="text-4xl font-bold" style={{ color: c.primary }}>
               TracKeeper
             </Text>
-            <Text className="text-base mt-2" style={{ color: "#6b7280" }}>
+            <Text className="text-base mt-2" style={{ color: c.textTertiary }}>
               Property Maintenance Tracking
             </Text>
           </View>
 
           {/* Form */}
           <View className="mb-6">
-            <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>
+            <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
               Email
             </Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Enter your email"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -87,14 +89,14 @@ export default function LoginScreen() {
           </View>
 
           <View className="mb-8">
-            <Text className="text-sm font-medium mb-2" style={{ color: "#374151" }}>
+            <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
               Password
             </Text>
             <TextInput
               className="border rounded-xl px-4 py-3 text-base"
-              style={{ borderColor: "#d1d5db", color: "#111827" }}
+              style={{ borderColor: c.border, color: c.text }}
               placeholder="Enter your password"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={c.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -109,7 +111,7 @@ export default function LoginScreen() {
           {/* Login Button */}
           <TouchableOpacity
             className="rounded-xl py-4 items-center mb-4"
-            style={{ backgroundColor: loading ? "#93c5fd" : "#3b82f6" }}
+            style={{ backgroundColor: loading ? c.primaryLight : c.primary }}
             onPress={handleLogin}
             disabled={loading}
             accessibilityRole="button"
@@ -118,7 +120,7 @@ export default function LoginScreen() {
             testID="login-submit-button"
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={c.background} />
             ) : (
               <Text className="text-white text-base font-semibold">Sign In</Text>
             )}
@@ -132,9 +134,9 @@ export default function LoginScreen() {
             accessibilityLabel="Go to sign up"
             testID="login-signup-link"
           >
-            <Text style={{ color: "#6b7280" }}>
+            <Text style={{ color: c.textTertiary }}>
               Don&apos;t have an account?{" "}
-              <Text className="font-semibold" style={{ color: "#3b82f6" }}>
+              <Text className="font-semibold" style={{ color: c.primary }}>
                 Sign Up
               </Text>
             </Text>
