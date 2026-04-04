@@ -1,14 +1,25 @@
 import { renderHook, act } from "@testing-library/react-native/pure";
 import { useTenantRequests, useAllRequests } from "@/hooks/useRequests";
-import { subscribeToTenantRequests, subscribeToAllRequests } from "@/services/requests";
+import {
+  subscribeToTenantRequests,
+  subscribeToAllRequests,
+  loadMoreTenantRequests,
+  loadMoreAllRequests,
+  PAGE_SIZE,
+} from "@/services/requests";
 
 jest.mock("@/services/requests", () => ({
   subscribeToTenantRequests: jest.fn(),
   subscribeToAllRequests: jest.fn(),
+  loadMoreTenantRequests: jest.fn(),
+  loadMoreAllRequests: jest.fn(),
+  PAGE_SIZE: 20,
 }));
 
 const mockTenantSub = subscribeToTenantRequests as jest.Mock;
 const mockAllSub = subscribeToAllRequests as jest.Mock;
+const mockLoadMoreTenant = loadMoreTenantRequests as jest.Mock;
+const mockLoadMoreAll = loadMoreAllRequests as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -122,5 +133,101 @@ describe("useAllRequests", () => {
     const { result } = renderHook(() => useAllRequests());
     expect(result.current.error).toBe(error);
     expect(result.current.loading).toBe(false);
+  });
+
+  it("loadMore appends paginated results", async () => {
+    const page1 = Array.from({ length: PAGE_SIZE }, (_, i) => ({ id: `r${i}` }));
+    mockAllSub.mockImplementation((cb: (data: unknown[], lastDoc: unknown) => void) => {
+      cb(page1, "last-doc");
+      return jest.fn();
+    });
+
+    mockLoadMoreAll.mockResolvedValue({ requests: [{ id: "extra-1" }], lastDoc: "last-2", hasMore: false });
+
+    const { result } = renderHook(() => useAllRequests());
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(mockLoadMoreAll).toHaveBeenCalled();
+    expect(result.current.requests).toHaveLength(PAGE_SIZE + 1);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it("loadMore handles errors", async () => {
+    const page1 = Array.from({ length: PAGE_SIZE }, (_, i) => ({ id: `r${i}` }));
+    mockAllSub.mockImplementation((cb: (data: unknown[], lastDoc: unknown) => void) => {
+      cb(page1, "last-doc");
+      return jest.fn();
+    });
+
+    mockLoadMoreAll.mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() => useAllRequests());
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.error?.message).toBe("Network error");
+    expect(result.current.loadingMore).toBe(false);
+  });
+});
+
+describe("useTenantRequests — loadMore", () => {
+  it("loadMore appends paginated results", async () => {
+    const page1 = Array.from({ length: PAGE_SIZE }, (_, i) => ({ id: `r${i}` }));
+    mockTenantSub.mockImplementation((_id: string, cb: (data: unknown[], lastDoc: unknown) => void) => {
+      cb(page1, "last-doc");
+      return jest.fn();
+    });
+
+    mockLoadMoreTenant.mockResolvedValue({ requests: [{ id: "extra-1" }], lastDoc: "last-2", hasMore: false });
+
+    const { result } = renderHook(() => useTenantRequests("user-1"));
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(mockLoadMoreTenant).toHaveBeenCalled();
+    expect(result.current.requests).toHaveLength(PAGE_SIZE + 1);
+  });
+
+  it("loadMore handles errors gracefully", async () => {
+    const page1 = Array.from({ length: PAGE_SIZE }, (_, i) => ({ id: `r${i}` }));
+    mockTenantSub.mockImplementation((_id: string, cb: (data: unknown[], lastDoc: unknown) => void) => {
+      cb(page1, "last-doc");
+      return jest.fn();
+    });
+
+    mockLoadMoreTenant.mockRejectedValue("string error");
+
+    const { result } = renderHook(() => useTenantRequests("user-1"));
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.error?.message).toBe("Failed to load more");
+    expect(result.current.loadingMore).toBe(false);
+  });
+
+  it("loadMore does nothing when hasMore is false", async () => {
+    // Return fewer items than PAGE_SIZE → hasMore=false
+    mockTenantSub.mockImplementation((_id: string, cb: (data: unknown[], lastDoc: unknown) => void) => {
+      cb([{ id: "r1" }], "last-doc");
+      return jest.fn();
+    });
+
+    const { result } = renderHook(() => useTenantRequests("user-1"));
+    expect(result.current.hasMore).toBe(false);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(mockLoadMoreTenant).not.toHaveBeenCalled();
   });
 });

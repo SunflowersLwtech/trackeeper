@@ -6,13 +6,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
 import { RequestCard } from "@/components/request/RequestCard";
 import { RequestStatus } from "@/types";
-import { getStatusColor, getStatusLabel, STATUS_ORDER } from "@/utils/status";
+import { getStatusColor, getStatusLabel } from "@/utils/status";
 import { WebContainer } from "@/components/ui/WebContainer";
 import { ListFooter } from "@/components/ui/ListFooter";
 import { SkeletonList } from "@/components/ui/SkeletonCard";
 import { FilterToolbar, ActiveFilter } from "@/components/request/FilterToolbar";
 import { FilterSheet, FilterSection } from "@/components/request/FilterSheet";
 import { useColors } from "@/hooks/useColors";
+
+// Maintainer only sees: assigned, in_progress, on_hold, completed
+const maintainerStatuses: (RequestStatus | "all")[] = ["all", "assigned", "in_progress", "on_hold", "completed"];
 
 export default function MaintainerTasksScreen() {
   const c = useColors();
@@ -61,9 +64,6 @@ export default function MaintainerTasksScreen() {
     return counts;
   }, [requests]);
 
-  // Maintainer only sees: assigned, in_progress, on_hold, completed
-  const maintainerStatuses: (RequestStatus | "all")[] = ["all", "assigned", "in_progress", "on_hold", "completed"];
-
   const filterSections = useMemo<FilterSection[]>(() => [{
     title: "Status",
     key: "status",
@@ -75,7 +75,7 @@ export default function MaintainerTasksScreen() {
       color: s === "all" ? c.text : getStatusColor(s as RequestStatus),
       count: statusCounts[s] ?? 0,
     })),
-  }], [statusFilter, statusCounts, c.text, maintainerStatuses]);
+  }], [statusFilter, statusCounts, c.text]);
 
   const handleReset = useCallback(() => setStatusFilter("all"), []);
 

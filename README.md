@@ -322,7 +322,7 @@ Every transition is recorded in the `statusHistory` array with timestamp, actor 
          │  Integration  │  65 Firestore security rule tests (emulator)
          │    (65)       │  50 manual smoke scenarios + 3 use cases
         ─┼───────────────┼─
-        │    Unit Tests       │  225 unit + integration tests (Jest)
+        │    Unit Tests       │  234 unit + integration tests (Jest)
         │      (225)          │  30 boundary/edge-case tests
         └─────────────────────┘
 ```
@@ -341,14 +341,14 @@ Every transition is recorded in the `statusHistory` array with timestamp, actor 
 | `any` type usage | 0 | 0 |
 | Cross-platform data chains | 3 use cases x 3 platforms | All pass |
 | Boundary / edge-case tests | 30 passed | All pass |
-| Manual smoke scenarios | 50 documented (TEST_PLAN.md) | All pass |
+| Manual smoke scenarios | 50 documented (docs/TEST_PLAN.md) | All pass |
 | **Total verified test points** | **373** | — |
 
 ### 8.3 Test Commands
 
 | Command | Scope | Expected Result |
 |---------|-------|-----------------|
-| `npm test` | 225 unit and integration tests | All pass |
+| `npm test` | 234 unit and integration tests | All pass |
 | `npm run test:coverage` | Coverage report | Statements > 94%, Branches > 95% |
 | `npm run test:rules` | 65 Firestore security rule tests (requires emulator) | All pass |
 | `npm run typecheck` | TypeScript strict type checking | Zero errors |
@@ -400,7 +400,7 @@ GitHub Actions runs on every push to `main`:
 
 ### 8.6 Manual Smoke Test Plan
 
-A comprehensive manual test plan (`TEST_PLAN.md`) documents 50 scenarios covering authentication (S01–S12), request lifecycle (S13–S29), rating (S30–S32), chat (S33–S38), manager notes (S39–S41), security edge cases (S42–S47), and operational edge cases (S48–S50), plus 3 cross-platform data chain use cases verified on Web, iOS, and Android.
+A comprehensive manual test plan (`docs/TEST_PLAN.md`) documents 50 scenarios covering authentication (S01–S12), request lifecycle (S13–S29), rating (S30–S32), chat (S33–S38), manager notes (S39–S41), security edge cases (S42–S47), and operational edge cases (S48–S50), plus 3 cross-platform data chain use cases verified on Web, iOS, and Android.
 
 ---
 
@@ -554,8 +554,11 @@ project/
 ├── scripts/                     CI pipeline scripts and E2E helpers
 ├── firestore.rules              Firestore security rules (role-based CRUD + state machine)
 ├── storage.rules                Firebase Storage security rules (type, size, path)
-├── TEST_PLAN.md                 Manual smoke test plan (50 scenarios + 3 cross-platform chains)
-└── LIVESPEC.md                  Living specification document with review history
+├── docs/
+│   ├── LIVESPEC.md              Living specification document with review history
+│   ├── TEST_PLAN.md             Manual smoke test plan (50 scenarios + 3 cross-platform chains)
+│   └── ACADEMIC_DELIVERABLES.md Academic deliverables and achievement summary
+└── ...
 ```
 
 ---

@@ -15,6 +15,8 @@ import { RequestStatus } from "@/types";
 import { getStatusColor, getStatusLabel, STATUS_ORDER } from "@/utils/status";
 import { useColors } from "@/hooks/useColors";
 
+const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "cancelled"];
+
 export default function TenantHomeScreen() {
   const { user } = useAuth();
   const c = useColors();
@@ -62,8 +64,6 @@ export default function TenantHomeScreen() {
     return counts;
   }, [requests]);
 
-  const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "cancelled"];
-
   const filterSections = useMemo<FilterSection[]>(() => [{
     title: "Status",
     key: "status",
@@ -75,7 +75,7 @@ export default function TenantHomeScreen() {
       color: s === "all" ? c.text : getStatusColor(s as RequestStatus),
       count: statusCounts[s] ?? 0,
     })),
-  }], [statusFilter, statusCounts, c.text, allStatuses]);
+  }], [statusFilter, statusCounts, c.text]);
 
   const handleReset = useCallback(() => setStatusFilter("all"), []);
 

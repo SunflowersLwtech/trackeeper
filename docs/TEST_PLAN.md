@@ -159,7 +159,7 @@ Each of the following three user cases must be verified on all three platforms (
 - [ ] Zero Red Screen / crash errors
 - [ ] Zero console errors during normal operation
 - [ ] Real-time sync latency < 500 ms
-- [ ] `npm test` — all 225 unit tests pass
+- [ ] `npm test` — all 234 unit tests pass
 - [ ] `npm run test:rules` — all 65 security rule tests pass
 - [ ] `npx tsc --noEmit` — zero type errors
 - [ ] `npm run lint` — zero ESLint errors

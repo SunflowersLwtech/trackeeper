@@ -16,6 +16,8 @@ import { useColors } from "@/hooks/useColors";
 
 type SortOption = "newest" | "oldest" | "priority";
 
+const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "on_hold", "cancelled"];
+
 export default function ManagerDashboardScreen() {
   const c = useColors();
   const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useAllRequests();
@@ -84,8 +86,6 @@ export default function ManagerDashboardScreen() {
 
   const filterCount = activeFilters.length;
 
-  const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "on_hold", "cancelled"];
-
   const filterSections = useMemo<FilterSection[]>(() => [
     {
       title: "Status",
@@ -122,7 +122,7 @@ export default function ManagerDashboardScreen() {
         { label: "Priority", value: "priority", icon: "flag-outline" as const },
       ],
     },
-  ], [statusFilter, categoryFilter, sort, statusCounts, c.text, allStatuses]);
+  ], [statusFilter, categoryFilter, sort, statusCounts, c.text]);
 
   const handleReset = useCallback(() => {
     setStatusFilter("all");

@@ -48,28 +48,27 @@ The following features were implemented beyond the original MVP specification, d
 
 | Category | Framework | Test Count | Status |
 |----------|-----------|------------|--------|
-| **Unit tests — Utils** | Jest | ~80 | All pass |
-| **Unit tests — Services** | Jest | ~60 | All pass |
-| **Unit tests — Hooks** | Jest | ~40 | All pass |
-| **Unit tests — Components** | Jest + RNTL | ~24 | All pass |
-| **Lifecycle integration tests** | Jest | ~6 | All pass |
-| **Boundary / edge-case tests** | Jest | 30 | All pass |
+| **Unit tests — Utils** | Jest | 116 | All pass |
+| **Unit tests — Services** | Jest | 85 | All pass |
+| **Unit tests — Hooks** | Jest + RNTL | 59 | All pass |
+| **Unit tests — Components** | Jest + RNTL | 23 | All pass |
 | **Firestore security rule tests** | rules-unit-testing + Emulator | 65 | All pass |
 | **E2E flows** | Maestro (iOS Simulator) | 10 | All pass |
 | **Cross-platform data chains** | Manual + Screenshots | 9 (3x3) | All pass |
 | **Manual smoke scenarios** | TEST_PLAN.md | 50 + 3 UCs | Documented |
-| **Total** | | **373** | **All pass** |
+| **Total** | | **420** | **All pass** |
 
 ### 2.2 Code Coverage
 
 | Metric | Value | Threshold |
 |--------|-------|-----------|
-| Statement coverage | **94.62%** | 80% (CI enforced) |
-| Branch coverage | **95.91%** | 80% (CI enforced) |
-| Function coverage | >90% | — |
-| Line coverage | >94% | — |
+| Statement coverage | **92.83%** | 80% (CI enforced) |
+| Branch coverage | **85.27%** | 80% (CI enforced) |
+| Function coverage | **86.87%** | — |
+| Line coverage | **93.36%** | — |
 
 Coverage is collected from `utils/**`, `services/**`, and `hooks/**` — the layers containing all business logic.
+`hooks/useAuth.ts` is a pure re-export with no executable statements and reports 0% nominally.
 
 ### 2.3 Security Rule Test Breakdown
 
@@ -127,7 +126,7 @@ Each use case was executed and verified on all three platforms:
 | Metric | Value |
 |--------|-------|
 | Total source files (excluding tests) | ~50 |
-| Total test files | ~18 |
+| Total test files | 27 |
 | App route screens | 16 |
 | Reusable components | 22 |
 | Custom hooks | 10 |
@@ -224,14 +223,14 @@ All 25 items from the improvement backlog have been completed:
 |---|----------|----------|-------------|
 | 1 | Source code | `project/` | Complete application source with TypeScript strict mode |
 | 2 | README | `project/README.md` | Comprehensive system documentation |
-| 3 | Living specification | `project/LIVESPEC.md` | Maintained specification with 16-round review history |
-| 4 | Test plan | `project/TEST_PLAN.md` | 50 manual scenarios + 3 cross-platform use cases |
+| 3 | Living specification | `project/docs/LIVESPEC.md` | Maintained specification with 16-round review history |
+| 4 | Test plan | `project/docs/TEST_PLAN.md` | 50 manual scenarios + 3 cross-platform use cases |
 | 5 | Firestore rules | `project/firestore.rules` | Declarative RBAC security rules |
 | 6 | Storage rules | `project/storage.rules` | File upload security rules |
 | 7 | CI pipeline | `project/.github/workflows/ci.yml` | Automated testing on push |
 | 8 | E2E flows | `project/.maestro/` | 10 Maestro YAML test definitions |
-| 9 | Test suite | `project/__tests__/` | 225 unit + 65 rules + 30 boundary tests |
-| 10 | Academic deliverables | `project/ACADEMIC_DELIVERABLES.md` | This document |
+| 9 | Test suite | `project/__tests__/` | 283 unit + 65 rules tests |
+| 10 | Academic deliverables | `project/docs/ACADEMIC_DELIVERABLES.md` | This document |
 | 11 | App screenshots | `screenshots/app/` | 11 annotated UI screenshots |
 | 12 | Demo presentation | `TracKeeper_Demo.pptx` | Progress review presentation slides |
 
@@ -242,7 +241,7 @@ All 25 items from the improvement backlog have been completed:
 | Criterion | Weight | Evidence |
 |-----------|--------|----------|
 | **Progress** (>50% modules complete) | 30% | All 5/5 core modules fully implemented and verified on 3 platforms |
-| **Implementation** (SE aspects: design, algorithm, programming, testing) | 30% | 5-layer architecture; state machine algorithm; TypeScript strict; 373 test points at 94.62% coverage |
+| **Implementation** (SE aspects: design, algorithm, programming, testing) | 30% | 5-layer architecture; state machine algorithm; TypeScript strict; 420 test points at 92.83% coverage |
 | **Module Functionality** (all presented modules work correctly) | 20% | 10 E2E flows pass; 3 cross-platform data chains verified; zero crashes in testing |
 | **Prioritization** (core modules completed first) | 10% | Auth → Request CRUD → Real-time sync → Chat → Rating (progressive enhancement) |
 | **Future Plan** (clear plan for remaining work) | 10% | 6 defined enhancements: analytics dashboard, i18n, notification preferences, photo gallery, offline writes, production deployment |
