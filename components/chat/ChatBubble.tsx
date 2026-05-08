@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 import { Message } from "@/types";
 import { useColors } from "@/hooks/useColors";
 import { formatTime } from "@/utils/time";
+import { MessageStatusIcon } from "./MessageStatusIcon";
 
 interface ChatBubbleProps {
   message: Message;
@@ -20,6 +21,16 @@ export const ChatBubble = React.memo(function ChatBubble({
   const time = message.createdAt?.toDate
     ? formatTime(message.createdAt.toDate())
     : "";
+
+  // Read-receipt logic: read by anyone other than the sender → "read".
+  const readBy = message.readBy ?? [];
+  const isRead = readBy.some((uid) => uid !== message.senderId);
+
+  const hasImage = !!message.imageUrl;
+  // When the message has an image and the only "text" is our 📷 placeholder, hide the text row.
+  const trimmedText = message.text.trim();
+  const isPlaceholder = hasImage && trimmedText === "📷";
+  const hasText = trimmedText.length > 0 && !isPlaceholder;
 
   return (
     <View style={[styles.wrapper, isOwn ? styles.wrapperOwn : styles.wrapperOther]}>
@@ -54,23 +65,41 @@ export const ChatBubble = React.memo(function ChatBubble({
                   backgroundColor: c.surfaceAlt,
                   borderBottomLeftRadius: 4,
                 },
+            hasImage && hasText ? styles.bubbleWithImage : null,
+            hasImage && !hasText ? styles.bubbleImageOnly : null,
           ]}
         >
-          <Text style={[styles.messageText, { color: isOwn ? "#fff" : c.text }]}>
-            {message.text}
-          </Text>
+          {/* Image attachment */}
+          {hasImage && (
+            <Image
+              source={{ uri: message.imageUrl }}
+              style={[styles.image, !hasText && styles.imageNoTextRadius]}
+              resizeMode="cover"
+              accessibilityLabel="Chat image attachment"
+            />
+          )}
+          {hasText && (
+            <Text
+              style={[
+                styles.messageText,
+                hasImage && styles.messageTextWithImage,
+                { color: isOwn ? "#fff" : c.text },
+              ]}
+            >
+              {message.text}
+            </Text>
+          )}
         </View>
 
-        {/* Time */}
-        <Text
-          style={[
-            styles.time,
-            { color: c.textMuted },
-            isOwn ? styles.timeOwn : styles.timeOther,
-          ]}
-        >
-          {time}
-        </Text>
+        {/* Time + read receipt */}
+        <View style={[styles.metaRow, isOwn ? styles.metaRowOwn : styles.metaRowOther]}>
+          <Text style={[styles.time, { color: c.textMuted }]}>{time}</Text>
+          {isOwn && (
+            <View style={styles.statusIcon}>
+              <MessageStatusIcon read={isRead} />
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -123,19 +152,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 18,
+    overflow: "hidden",
+  },
+  bubbleWithImage: {
+    paddingTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  bubbleImageOnly: {
+    padding: 4,
+  },
+  image: {
+    width: 220,
+    maxWidth: "100%",
+    height: 200,
+    borderRadius: 14,
+    marginBottom: 6,
+  },
+  imageNoTextRadius: {
+    marginBottom: 0,
   },
   messageText: {
     fontSize: 15,
     lineHeight: 20,
   },
-  time: {
-    fontSize: 10,
+  messageTextWithImage: {
+    paddingHorizontal: 10,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 2,
   },
-  timeOwn: {
+  metaRowOwn: {
     marginRight: 4,
+    justifyContent: "flex-end",
   },
-  timeOther: {
+  metaRowOther: {
     marginLeft: 4,
+    justifyContent: "flex-start",
+  },
+  time: {
+    fontSize: 10,
+  },
+  statusIcon: {
+    marginLeft: 4,
+    flexDirection: "row",
+    alignItems: "center",
   },
 });

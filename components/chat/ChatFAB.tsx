@@ -11,14 +11,20 @@ interface ChatFABProps {
   currentUserId: string;
   loading: boolean;
   error: Error | null;
-  onSend: (text: string) => void;
+  onSend: (text: string, imageUri?: string) => void | Promise<void>;
   /** Optional label shown in the sheet header */
   headerLabel?: string;
+  /** Request id forwarded to ChatView for read-receipt marking. */
+  requestId?: string;
+  /** Names of other participants currently typing. */
+  othersTyping?: { name: string }[];
+  /** Notify the parent that the local user is or isn't typing. */
+  onTypingChange?: (typing: boolean) => void;
 }
 
 /**
  * Floating Action Button that opens a bottom-sheet chat overlay.
- * Badge only counts messages from OTHER users (not your own).
+ * Badge only counts UNREAD messages from OTHER users.
  */
 export function ChatFAB({
   messages,
@@ -27,13 +33,21 @@ export function ChatFAB({
   error,
   onSend,
   headerLabel = "Messages",
+  requestId,
+  othersTyping,
+  onTypingChange,
 }: ChatFABProps) {
   const c = useColors();
   const [open, setOpen] = useState(false);
 
-  // Only count messages from others for the badge
+  // Only count UNREAD messages from others for the badge.
   const otherCount = useMemo(
-    () => messages.filter((m) => m.senderId !== currentUserId).length,
+    () =>
+      messages.filter(
+        (m) =>
+          m.senderId !== currentUserId &&
+          (!m.readBy || !m.readBy.includes(currentUserId)),
+      ).length,
     [messages, currentUserId],
   );
 
@@ -47,7 +61,7 @@ export function ChatFAB({
         accessibilityRole="button"
         accessibilityLabel={
           otherCount > 0
-            ? `Open messages, ${otherCount} from others`
+            ? `Open messages, ${otherCount} unread`
             : "Open messages"
         }
         testID="chat-fab"
@@ -63,10 +77,22 @@ export function ChatFAB({
       </TouchableOpacity>
 
       {/* Chat bottom sheet */}
-      <BottomSheet visible={open} onClose={() => setOpen(false)} heightFraction={0.8}>
+      <BottomSheet
+        visible={open}
+        onClose={() => {
+          setOpen(false);
+          if (onTypingChange) onTypingChange(false);
+        }}
+        heightFraction={0.8}
+      >
         <View style={[styles.header, { borderBottomColor: c.borderLight }]}>
           <View style={styles.headerLeft}>
-            <Ionicons name="chatbubbles-outline" size={20} color={c.primary} style={{ marginRight: 8 }} />
+            <Ionicons
+              name="chatbubbles-outline"
+              size={20}
+              color={c.primary}
+              style={{ marginRight: 8 }}
+            />
             <Text style={[styles.headerText, { color: c.text }]}>{headerLabel}</Text>
             <View style={[styles.headerBadge, { backgroundColor: c.surfaceAlt }]}>
               <Text style={[styles.headerBadgeText, { color: c.textTertiary }]}>
@@ -75,7 +101,10 @@ export function ChatFAB({
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => setOpen(false)}
+            onPress={() => {
+              setOpen(false);
+              if (onTypingChange) onTypingChange(false);
+            }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Close messages"
@@ -89,6 +118,9 @@ export function ChatFAB({
           loading={loading}
           error={error}
           onSend={onSend}
+          requestId={requestId}
+          othersTyping={othersTyping}
+          onTypingChange={onTypingChange}
         />
       </BottomSheet>
     </>

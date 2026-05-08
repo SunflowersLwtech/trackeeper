@@ -6,6 +6,18 @@ jest.mock("@/services/messages", () => ({
   subscribeToMessages: jest.fn(),
 }));
 
+// The hook also subscribes to the parent request doc for typing-indicator state.
+// Stub Firestore so that subscription is a no-op in tests.
+jest.mock("firebase/firestore", () => ({
+  doc: jest.fn(() => ({})),
+  onSnapshot: jest.fn(() => jest.fn()),
+  updateDoc: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("@/config/firebase", () => ({
+  db: {},
+}));
+
 const mockSubscribe = subscribeToMessages as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());

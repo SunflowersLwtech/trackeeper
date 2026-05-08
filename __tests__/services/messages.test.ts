@@ -29,6 +29,7 @@ describe("sendMessage", () => {
       senderId: "user-1",
       senderName: "John",
       text: "Hello",
+      readBy: ["user-1"],
       createdAt: "mock-ts",
     });
   });
