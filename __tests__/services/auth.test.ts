@@ -19,6 +19,7 @@ jest.mock("firebase/firestore", () => ({
   doc: jest.fn(() => "mock-doc-ref"),
   setDoc: jest.fn().mockResolvedValue(undefined),
   getDoc: jest.fn(),
+  serverTimestamp: jest.fn(() => "mock-ts"),
 }));
 
 jest.mock("@/config/firebase", () => ({
@@ -41,6 +42,10 @@ describe("signIn", () => {
   it("calls signInWithEmailAndPassword and returns user", async () => {
     const mockUser = { uid: "u1", email: "a@b.com" };
     mockSignIn.mockResolvedValue({ user: mockUser });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ uid: "u1", email: "a@b.com", role: "tenant", status: "active" }),
+    });
 
     const user = await signIn("a@b.com", "pass123");
     expect(user).toEqual(mockUser);
@@ -51,10 +56,21 @@ describe("signIn", () => {
     mockSignIn.mockRejectedValue(new Error("Invalid credentials"));
     await expect(signIn("bad@email.com", "wrong")).rejects.toThrow("Invalid credentials");
   });
+
+  it("rejects pending_approval users with TenantAccountInactiveError", async () => {
+    const mockUser = { uid: "u2", email: "pending@b.com" };
+    mockSignIn.mockResolvedValue({ user: mockUser });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ uid: "u2", email: "pending@b.com", role: "tenant", status: "pending_approval" }),
+    });
+    await expect(signIn("pending@b.com", "pass123")).rejects.toThrow(/pending manager approval/i);
+    expect(mockFirebaseSignOut).toHaveBeenCalled();
+  });
 });
 
 describe("signUp", () => {
-  it("creates user and writes profile to Firestore", async () => {
+  it("creates user and writes pending_approval profile to Firestore", async () => {
     mockCreateUser.mockResolvedValue({ user: { uid: "new-uid" } });
 
     const result = await signUp("test@test.com", "pass123", "Test User", "tenant", "A-12");
@@ -65,14 +81,19 @@ describe("signUp", () => {
       email: "test@test.com",
       name: "Test User",
       role: "tenant",
+      status: "pending_approval",
       unitNumber: "A-12",
+      phone: undefined,
+      createdAt: "mock-ts",
     });
     expect(result).toEqual({
       uid: "new-uid",
       email: "test@test.com",
       name: "Test User",
       role: "tenant",
+      status: "pending_approval",
       unitNumber: "A-12",
+      phone: undefined,
     });
   });
 

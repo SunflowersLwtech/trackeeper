@@ -6,20 +6,45 @@ import {
   deleteUser,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/config/firebase";
 import { User } from "@/types";
 
-/** Sign in with email and password. Returns the Firebase user. */
+export class TenantAccountInactiveError extends Error {
+  status: "pending_approval" | "suspended" | "rejected";
+  rejectionReason?: string;
+  constructor(
+    status: "pending_approval" | "suspended" | "rejected",
+    rejectionReason?: string,
+  ) {
+    super(
+      status === "pending_approval"
+        ? "Your account is pending manager approval."
+        : status === "suspended"
+          ? "Your account has been suspended."
+          : "Your registration was rejected.",
+    );
+    this.status = status;
+    this.rejectionReason = rejectionReason;
+  }
+}
+
+/** Sign in with email and password. Throws TenantAccountInactiveError if account is not active. */
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
   const credential = await signInWithEmailAndPassword(auth, email, password);
+  // Lookup profile to enforce status gate
+  const profile = await getUserProfile(credential.user.uid);
+  if (profile && profile.status && profile.status !== "active") {
+    // Sign out so the AuthContext does not consider this user logged in
+    await firebaseSignOut(auth).catch(() => {});
+    throw new TenantAccountInactiveError(profile.status, profile.rejectionReason);
+  }
   return credential.user;
 }
 
 /**
- * Register a new tenant account. Creates Firebase Auth credentials and Firestore profile.
- * Cleans up the Auth account if Firestore write fails (e.g., rules rejection).
- * Only "tenant" role is allowed for public self-registration.
+ * Register a new tenant account. Tenants start in pending_approval state and
+ * cannot create requests until a manager approves them.
  */
 export async function signUp(
   email: string,
@@ -27,21 +52,24 @@ export async function signUp(
   name: string,
   role: "tenant",
   unitNumber?: string,
+  phone?: string,
 ): Promise<User> {
-  // Public registration is tenant-only. Firestore rules enforce this server-side.
-  // Manager/maintainer profiles must be provisioned via Cloud Functions or Admin SDK.
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   const user: User = {
     uid: credential.user.uid,
     email,
     name,
     role,
+    status: "pending_approval",
     unitNumber: unitNumber || undefined,
+    phone: phone || undefined,
   };
   try {
-    await setDoc(doc(db, "users", credential.user.uid), user);
+    await setDoc(doc(db, "users", credential.user.uid), {
+      ...user,
+      createdAt: serverTimestamp(),
+    });
   } catch (error) {
-    // If Firestore rejects the profile (e.g., non-tenant role), clean up the Auth account
     await deleteUser(credential.user).catch(() => {});
     throw error;
   }
@@ -60,10 +88,10 @@ export async function getUserProfile(uid: string): Promise<User | null> {
   return snapshot.data() as User;
 }
 
-/** Update user profile fields (name, unitNumber). Merge-writes to Firestore. */
+/** Update user profile fields (name, unitNumber, phone, hourlyRate). Merge-writes to Firestore. */
 export async function updateUserProfile(
   uid: string,
-  fields: Partial<Pick<User, "name" | "unitNumber">>,
+  fields: Partial<Pick<User, "name" | "unitNumber" | "phone" | "hourlyRate" | "specialties">>,
 ): Promise<void> {
   await setDoc(doc(db, "users", uid), fields, { merge: true });
 }
