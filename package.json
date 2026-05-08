@@ -17,7 +17,9 @@
     "pipeline": "bash scripts/full-pipeline.sh",
     "pipeline:unit": "bash scripts/full-pipeline.sh --unit-only",
     "pipeline:e2e": "bash scripts/full-pipeline.sh --e2e-only",
-    "test:rules": "firebase emulators:exec --only firestore 'npx jest --config __tests__/rules/jest.rules.config.js'"
+    "test:rules": "firebase emulators:exec --only firestore 'npx jest --config __tests__/rules/jest.rules.config.js'",
+    "seed:demo": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' ts-node --transpile-only scripts/seed-demo.ts",
+    "seed:clear": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' ts-node --transpile-only scripts/clear-demo.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -42,6 +44,7 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
     "react-native-toast-message": "^2.3.3",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
@@ -63,6 +66,7 @@
     "prettier": "^3.8.1",
     "react-test-renderer": "19.1.0",
     "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
   },
   "private": true
