@@ -4,7 +4,7 @@
 > Updated after each review cycle and major change.
 >
 > **Project Type**: University Graduation Capstone
-> **Last Updated**: 2026-04-04
+> **Last Updated**: 2026-04-27
 
 ---
 
@@ -43,15 +43,19 @@ The system runs on iOS, Android, and web from a single TypeScript codebase.
 │                app/(maintainer)                   │
 ├──────────────────────────────────────────────────┤
 │                Components Layer                   │
-│  ui/   request/   chat/   notes/                 │
+│  ui/   request/   chat/   notes/   payment/      │
+│  charts/                                          │
 ├──────────────────────────────────────────────────┤
 │                  Hooks Layer                      │
 │  useAuth  useRequests  useMessages  useNotes     │
 │  useRequest  useMaintainers  useMaintainerReqs   │
+│  useNotificationCenter  usePendingTenants        │
+│  useEarnings  useAnalytics                       │
 ├──────────────────────────────────────────────────┤
 │                Services Layer                     │
 │  auth.ts  requests.ts  messages.ts  notes.ts     │
-│  users.ts                                         │
+│  users.ts  approvals.ts  notifications.ts        │
+│  payments.ts  chatStorage.ts                     │
 ├──────────────────────────────────────────────────┤
 │                 Firebase SDK                      │
 │  Authentication    Firestore    Storage           │
@@ -71,9 +75,9 @@ The system runs on iOS, Android, and web from a single TypeScript codebase.
 
 | Role | Capabilities |
 |------|-------------|
-| **Tenant** | Create requests, view own requests, chat with assigned maintainer, rate completed work, cancel early-stage requests |
-| **Manager** | View all requests, assign to maintainers, manage statuses (hold/resume), write private notes, filter and view statistics |
-| **Maintainer** | View assigned tasks, accept and progress work, mark complete, chat with tenant |
+| **Tenant** | Register (pending manager approval), create requests once `active`, view own requests, chat with assigned maintainer (with read-receipts and image attachments), receive in-app notifications on assignment / completion, rate completed work, cancel early-stage requests |
+| **Manager** | Approve, reject, suspend, or reactivate tenants; view all requests; assign to maintainers; override AI-suggested priority; manage statuses (hold/resume); write private notes; record cost breakdown and pay maintainers; view analytics dashboard; receive in-app notifications on every new request |
+| **Maintainer** | View assigned tasks, accept and progress work, put on hold, mark complete, chat with tenant, view earnings dashboard (paid vs. pending), receive in-app notifications on new assignments and payments |
 
 ---
 
@@ -98,27 +102,39 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 
 ## 6. Key Features
 
-1. **Authentication**: Email/password with tenant-only public registration; manager/maintainer provisioned by administrator
-2. **Real-time synchronisation**: Firestore `onSnapshot` with sub-500 ms latency target
-3. **Image uploads**: `expo-image-picker` with Firebase Storage (resumable, content-type validated, 10 MB limit)
-4. **In-request chat**: Real-time messaging between request participants
-5. **Manager private notes**: Internal notes visible only to the manager role
-6. **Status timeline**: Visual step indicator and full transition history
-7. **Rating system**: 1--5 stars with optional comment, available after completion
-8. **Dashboard filtering**: Status, category, and priority filters with live statistics bar
-9. **Form validation**: Client-side with inline field-level error messages
-10. **Auth persistence**: AsyncStorage (native) / localStorage (web)
-11. **Error boundaries**: Global `ErrorBoundary` component with retry capability
-12. **Offline persistence**: Firestore local cache with `persistentLocalCache`
+1. **Authentication**: Email/password with tenant-only public registration. Tenants land in `pending_approval` and cannot create requests until a manager flips them to `active`.
+2. **Tenant approval workflow**: Manager-side approvals queue with badge, approve / reject (with reason) / suspend / reactivate actions; status changes fan out as in-app notifications.
+3. **AI priority suggestion**: `utils/priority.ts` keyword heuristic auto-tags new requests as high / medium / low based on title + description + category. Tenants no longer pick priority. Manager sees the suggestion + reason and can override at any time.
+4. **In-app notification center**: `users/{uid}/notifications` subcollection, `NotificationBell` in every header with unread badge and dropdown feed; events: request created, assigned, started, completed, on-hold/resumed, paid, approved, rejected, suspended, reactivated.
+5. **Mock payment flow**: Manager records cost (labour hours × hourly rate + materials) on completed jobs, then pays via a Stripe-style `PaymentDialog` (bank transfer / cash / card mock). Each payment generates a local `TKP-xxx` reference number.
+6. **Maintainer earnings dashboard**: Paid vs. pending totals (gradient hero card) and per-job history.
+7. **Manager analytics dashboard**: KPI cards (open vs. completed, average resolution time, satisfaction, revenue), donut by status, bar charts by month and category, submission heatmap, maintainer leaderboard, revenue summary — all SVG-rendered with staggered fade-in.
+8. **Real-time synchronisation**: Firestore `onSnapshot` with sub-500 ms latency target.
+9. **Image uploads**: `expo-image-picker` with Firebase Storage (resumable, content-type validated, 10 MB limit) — supported in both request creation and chat.
+10. **In-request chat with read-receipts and images**: `readBy` array per message renders ✓ / ✓✓ ticks; typing indicators via subset-update Firestore rule branch on the parent request doc.
+11. **Manager private notes**: Internal notes visible only to the manager role.
+12. **Status timeline**: Visual step indicator with full transition history (actor + timestamp).
+13. **Rating system**: 1--5 stars with optional comment, available after completion.
+14. **Dashboard filtering**: Status, category, and priority filters with live statistics bar; pending-tenants CTA banner appears on the manager dashboard whenever the approval queue is non-empty.
+15. **Polished login + registration**: Gradient hero, demo-persona quick-fill chips (Tenant / Manager / Maintainer), show-password toggle, dedicated pending-approval screen with check-status action.
+16. **Demo seed dataset**: `npm run seed:demo` creates 3 tenants, 3 maintainers, and 12 realistic case studies covering every state, payment status, rating, and chat thread.
+17. **Form validation**: Client-side with inline field-level error messages.
+18. **Auth persistence**: AsyncStorage (native) / localStorage (web).
+19. **Error boundaries**: Global `ErrorBoundary` component with retry capability.
+20. **Offline persistence**: Firestore local cache with `persistentLocalCache`.
 
 ---
 
 ## 7. Security
 
 - Firestore rules enforce role-based read/write with field-level validation
-- User profile creation validates `uid`, `email`, `role` fields; role is immutable after creation
-- Request creation enforces tenant ownership and all required fields
-- Subcollection rules verify sender/author identity (`senderId == auth.uid`, `managerId == auth.uid`)
+- User profile creation validates `uid`, `email`, `role`, `status`; tenants must start in `pending_approval`, only managers can flip status; `role` is immutable after creation
+- Tenants must be `active` to create requests (`getUserStatus() == "active"` check inside request-create rule)
+- Request creation enforces tenant ownership and all required fields including `priority` (server-validated set)
+- Manager priority override is allowed by the manager update branch (immutable `tenantId` / `tenantName` / `createdAt` / `category`); tenants cannot mutate `priority` after submission
+- Typing-indicator updates use a dedicated rule branch that pins every other field — clients can flip `typing` without escalating privileges
+- Subcollection rules verify sender/author identity (`senderId == auth.uid`, `managerId == auth.uid`); message updates allow `readBy` mutations only, with `senderId` / `text` / `createdAt` immutable
+- Per-user notifications subcollection (`users/{uid}/notifications`) is writable by any authenticated client (client-side fan-out) but with a strict shape (`kind`, `title`, `body`, `read=false`, `createdAt`); only the owner can mark as read
 - Storage rules restrict uploads to `image/*` content type, 10 MB maximum, scoped paths
 - Client-side transition validation mirrors server-side rules
 - No delete operations are permitted (data retention by design)
@@ -129,13 +145,13 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 
 | Type | Framework | Count | Status |
 |------|-----------|-------|--------|
-| Unit + Integration | Jest + Testing Library | 225 | All pass |
+| Unit + Integration | Jest + Testing Library | 286 | All pass |
 | Security Rules | @firebase/rules-unit-testing | 65 | All pass |
 | E2E (Maestro) | Maestro 2.4.0 | 5 flows | iOS verified |
 | Cross-platform data chains | Node.js + Playwright + Screenshots | 9 (3 per platform) | Web + iOS + Android pass |
 | Boundary / edge cases | Node.js + Playwright | 30 | All pass |
 | Manual smoke scenarios | TEST_PLAN.md | 23 | Documented |
-| **Total verified test points** | | **373** | **All pass** |
+| **Total verified test points** | | **434** | **All pass** |
 
 ---
 
@@ -143,7 +159,7 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Unit test count | 225 | — |
+| Unit test count | 286 | — |
 | Security rule test count | 65 | — |
 | Statement coverage | 94.62% | > 90% |
 | Branch coverage | 95.91% | > 90% |
@@ -179,6 +195,7 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 | 14 | 2026-04-03 | **A+ (95)** | 100% JSDoc on all services, retry buttons on all error screens |
 | 15 | 2026-04-03 | A+ (95) | Firebase migration to tracekeeper-51b4d, tenant cancel rule fix, auth layout fix |
 | 16 | 2026-04-04 | A+ (95) | testID full coverage (22 elements), dead code cleanup, Maestro iOS 26.2 compat, three-platform E2E (9 data chains), 30 boundary tests, academic documentation |
+| 17 | 2026-04-27 | A+ (98) | Tenant approval workflow, in-app notification center with unread badges, AI priority suggestion (manager-overridable), payment simulation with cost breakdown, maintainer earnings dashboard, manager analytics dashboard, chat read-receipts and image attachments, demo seed dataset (12 cases), polished login + pending-approval screens |
 
 ---
 
@@ -212,6 +229,16 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 - [x] Maestro E2E flows rewritten for iOS 26.2
 - [x] Three-platform E2E verification (Web + iOS + Android)
 - [x] Boundary and edge-case test suite (30 cases)
+- [x] Tenant registration approval queue (`pending_approval` → manager approve/reject)
+- [x] In-app notification center (`users/{uid}/notifications` subcollection, bell with unread badge)
+- [x] AI-suggested request priority (keyword heuristic — manager has final say via override)
+- [x] Mock payment flow (cost breakdown editor + Stripe-style payment dialog)
+- [x] Maintainer earnings dashboard (paid vs. pending, job history)
+- [x] Manager analytics dashboard (KPI cards, donut, bar charts, heatmap, leaderboard, revenue)
+- [x] Chat read-receipts (`readBy` array, ✓ / ✓✓ ticks) and image attachments
+- [x] Typing indicators (subset-update Firestore rule branch)
+- [x] Demo seed scripts (`npm run seed:demo` / `seed:clear`) with 12 realistic case studies
+- [x] Polished login (gradient hero, demo persona quick-fill) and pending-approval screen
 
 ---
 
@@ -221,6 +248,9 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 |------------|--------|----------------------|
 | Manager/maintainer accounts require privileged provisioning | Cannot self-register non-tenant roles | Cloud Functions for admin provisioning |
 | Maestro `inputText` incompatible with iOS 26.2 | E2E flows require clipboard workaround | Bridge server automates the workaround |
-| No push notifications | Users must open the app to see updates | Firebase Cloud Messaging integration |
+| Notification fan-out is client-side | Sender must be online to deliver in-app notifications to peers | Cloud Functions onWrite trigger |
+| Push notifications are in-app only | OS-level push not delivered when the app is closed | Firebase Cloud Messaging + Expo push tokens |
+| Payment is simulated | No real payment gateway — `TKP-xxx` reference numbers are locally generated | Stripe / iPay88 integration (out of scope for FYP) |
+| AI priority is keyword-only | No ML model — heuristic word list with category fallback | Replace with a small classifier or LLM if external deps allowed |
 | No server-side pagination | Large datasets load in full on first query | Cursor-based pagination with `startAfter` |
 | Expo Go limitations for production | Cannot use custom native modules | `expo prebuild` for production builds |
