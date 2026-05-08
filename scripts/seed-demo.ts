@@ -60,8 +60,8 @@ import type {
 // ────────────────────────────────────────────────────────────────────────
 
 const DEMO_TITLE_PREFIX = "[DEMO] ";
-const DEMO_EMAIL_DOMAIN = "demo.trackeeper.local";
-const DEMO_PASSWORD = "DemoPass!2026";
+const DEMO_EMAIL_DOMAIN = "demo.trackeeper.app";
+const DEMO_PASSWORD = "Demo1234!";
 
 interface DemoUserSpec {
   key: string;
@@ -79,7 +79,7 @@ const TENANTS: DemoUserSpec[] = [
   {
     key: "alice",
     name: "Alice Tan",
-    email: `alice.tenant@${DEMO_EMAIL_DOMAIN}`,
+    email: `alice@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 12-345 6789",
     unitNumber: "Block A · Unit 7-12",
     role: "tenant",
@@ -88,7 +88,7 @@ const TENANTS: DemoUserSpec[] = [
   {
     key: "bob",
     name: "Bob Lim",
-    email: `bob.tenant@${DEMO_EMAIL_DOMAIN}`,
+    email: `bob@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 13-987 4321",
     unitNumber: "Block B · Unit 14-03",
     role: "tenant",
@@ -97,7 +97,7 @@ const TENANTS: DemoUserSpec[] = [
   {
     key: "charlie",
     name: "Charlie Wong",
-    email: `charlie.tenant@${DEMO_EMAIL_DOMAIN}`,
+    email: `charlie@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 16-222 8090",
     unitNumber: "Block A · Unit 5-08",
     role: "tenant",
@@ -109,7 +109,7 @@ const MAINTAINERS: DemoUserSpec[] = [
   {
     key: "david",
     name: "David Tan",
-    email: `david.plumber@${DEMO_EMAIL_DOMAIN}`,
+    email: `david@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 11-998 5500",
     role: "maintainer",
     status: "active",
@@ -119,7 +119,7 @@ const MAINTAINERS: DemoUserSpec[] = [
   {
     key: "emily",
     name: "Emily Lim",
-    email: `emily.electric@${DEMO_EMAIL_DOMAIN}`,
+    email: `emily@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 17-411 2030",
     role: "maintainer",
     status: "active",
@@ -129,7 +129,7 @@ const MAINTAINERS: DemoUserSpec[] = [
   {
     key: "farah",
     name: "Farah Aziz",
-    email: `farah.handy@${DEMO_EMAIL_DOMAIN}`,
+    email: `farah@${DEMO_EMAIL_DOMAIN}`,
     phone: "+60 19-660 7788",
     role: "maintainer",
     status: "active",
@@ -1003,7 +1003,23 @@ async function main(): Promise<void> {
   fmt("manager name", managerName);
 
   announce("Wipe old demo data");
-  const cleanup = await wipeOldDemoData();
+  let cleanup: CleanupCounts = {
+    requestsDeleted: 0,
+    messagesDeleted: 0,
+    notesDeleted: 0,
+    usersDeleted: 0,
+    notificationsDeleted: 0,
+  };
+  if (process.env.SEED_SKIP_WIPE !== "1") {
+    try {
+      cleanup = await wipeOldDemoData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`  ⚠ wipe skipped (${msg})`);
+    }
+  } else {
+    console.log("  · skipped (SEED_SKIP_WIPE=1)");
+  }
   fmt("requests deleted", cleanup.requestsDeleted);
   fmt("messages deleted", cleanup.messagesDeleted);
   fmt("notes deleted", cleanup.notesDeleted);

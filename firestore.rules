@@ -59,20 +59,20 @@ service cloud.firestore {
       // Read: any authenticated user (needed for sender names, maintainer list).
       allow read: if isAuthenticated();
 
-      // Create: tenant self-registration (must start as pending_approval) OR manager provisioning staff.
+      // Create: tenant self-registration (must start as pending_approval) OR manager provisioning any role.
       allow create: if (
-        // Public tenant registration — must enter pending_approval state
+        // Public tenant self-registration — must enter pending_approval state
         (isOwner(userId)
           && request.resource.data.uid == userId
           && request.resource.data.email == request.auth.token.email
           && request.resource.data.role == "tenant"
           && request.resource.data.status == "pending_approval")
         ||
-        // Manager provisioning maintainer / manager — created already active
+        // Manager provisioning any role (tenant onboarding is admin-driven per spec).
         (getUserRole() == "manager"
           && request.resource.data.uid == userId
-          && request.resource.data.role in ["maintainer", "manager"]
-          && request.resource.data.status == "active")
+          && request.resource.data.role in ["tenant", "maintainer", "manager"]
+          && isValidUserStatus(request.resource.data.status))
       )
         && request.resource.data.keys().hasAll(["uid", "email", "name", "role", "status"])
         && request.resource.data.name is string

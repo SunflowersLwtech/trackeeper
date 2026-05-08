@@ -124,6 +124,20 @@ describe("Users collection", () => {
           email: "newuser@test.com",
           name: "New User",
           role: "tenant",
+          status: "pending_approval",
+        }),
+      );
+    });
+
+    it("denies tenant self-registration with status=active (must be pending_approval)", async () => {
+      const db = authedDb("sneaky", "sneaky@test.com");
+      await assertFails(
+        setDoc(doc(db, "users", "sneaky"), {
+          uid: "sneaky",
+          email: "sneaky@test.com",
+          name: "Sneaky",
+          role: "tenant",
+          status: "active",
         }),
       );
     });

@@ -58,3 +58,8 @@ firestore-debug.log
 coverage/
 .claude/
 .playwright-mcp/
+
+# Playwright E2E artifacts
+test-results/
+e2e/web/playwright-report/
+firestore.rules.bootstrap
