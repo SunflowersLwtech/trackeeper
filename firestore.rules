@@ -3,8 +3,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserDoc().data.role;
+    }
+
+    function getUserStatus() {
+      return getUserDoc().data.get("status", "active");
+    }
+
+    function isActiveUser() {
+      return request.auth != null && getUserStatus() == "active";
     }
 
     function isAuthenticated() {
@@ -27,38 +39,92 @@ service cloud.firestore {
       return p in ["low", "medium", "high"];
     }
 
+    function isValidUserStatus(s) {
+      return s in ["pending_approval", "active", "suspended", "rejected"];
+    }
+
+    // Returns true if the named field on the request is unchanged across the
+    // pending update — accounts for the field being absent on either side.
+    function fieldUnchanged(name) {
+      return request.resource.data.get(name, null) == resource.data.get(name, null);
+    }
+
+    // Money-bearing fields that only a manager may mutate.
+    function moneyFieldsUnchanged() {
+      return fieldUnchanged("cost") && fieldUnchanged("payment");
+    }
+
     // ─── Users collection ───
     match /users/{userId} {
-      // Read: authenticated users can read public profile fields
-      // (needed for maintainer list, sender names in chat)
+      // Read: any authenticated user (needed for sender names, maintainer list).
       allow read: if isAuthenticated();
 
-      // Create: tenant self-registration OR manager provisioning staff accounts
+      // Create: tenant self-registration (must start as pending_approval) OR manager provisioning staff.
       allow create: if (
-        // Self-registration: tenant only
+        // Public tenant registration — must enter pending_approval state
         (isOwner(userId)
           && request.resource.data.uid == userId
           && request.resource.data.email == request.auth.token.email
-          && request.resource.data.role == "tenant")
+          && request.resource.data.role == "tenant"
+          && request.resource.data.status == "pending_approval")
         ||
-        // Manager provisioning: can create maintainer or manager profiles
+        // Manager provisioning maintainer / manager — created already active
         (getUserRole() == "manager"
           && request.resource.data.uid == userId
-          && request.resource.data.role in ["maintainer", "manager"])
+          && request.resource.data.role in ["maintainer", "manager"]
+          && request.resource.data.status == "active")
       )
-        && request.resource.data.keys().hasAll(["uid", "email", "name", "role"])
-        && request.resource.data.keys().hasOnly(["uid", "email", "name", "role", "phone", "unitNumber"])
+        && request.resource.data.keys().hasAll(["uid", "email", "name", "role", "status"])
         && request.resource.data.name is string
-        && request.resource.data.name.size() >= 2;
+        && request.resource.data.name.size() >= 2
+        && isValidUserStatus(request.resource.data.status);
 
-      // Update: own profile only, cannot change role/uid/email
-      allow update: if isOwner(userId)
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.keys().hasOnly(["uid", "email", "name", "role", "phone", "unitNumber"]);
+      // Update: covers (a) self-edit on safe fields, (b) push-token write, (c) manager approval flips.
+      allow update: if isAuthenticated() && (
+        // Self update — name, phone, unitNumber, hourlyRate, specialties, pushToken
+        (isOwner(userId)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+          // Cannot promote self from pending_approval — only manager can
+          && request.resource.data.get("status", "active") == resource.data.get("status", "active")
+        )
+        ||
+        // Manager approval / suspension / rejection of any user
+        (getUserRole() == "manager"
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+          && isValidUserStatus(request.resource.data.status)
+        )
+      );
 
       allow delete: if false;
+
+      // ─── Per-user notifications ───
+      match /notifications/{notificationId} {
+        // Owner reads own notifications; manager can read for any user (admin overview).
+        allow read: if isAuthenticated() && (isOwner(userId) || getUserRole() == "manager");
+
+        // Anyone authenticated may create a notification doc directed at userId
+        // (we use this from clients to fan-out — fields are validated).
+        allow create: if isAuthenticated()
+          && request.resource.data.keys().hasAll(["kind", "title", "body", "read", "createdAt"])
+          && request.resource.data.read == false
+          && request.resource.data.kind is string
+          && request.resource.data.title is string
+          && request.resource.data.body is string;
+
+        // Owner can mark as read.
+        allow update: if isOwner(userId)
+          && request.resource.data.kind == resource.data.kind
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.body == resource.data.body
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.read is bool;
+
+        allow delete: if false;
+      }
     }
 
     // ─── Requests collection ───
@@ -68,63 +134,63 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         getUserRole() == "manager" ||
         resource.data.tenantId == request.auth.uid ||
-        resource.data.assignedTo == request.auth.uid
+        resource.data.get("assignedTo", "") == request.auth.uid
       );
 
-      // Create: only tenants, strict field whitelist and value validation
+      // Create: only active tenants. Priority becomes a server-suggested or default value.
+      // We do NOT trust tenant-supplied priority blindly — managers can override later.
+      // Money fields (cost / payment) must NEVER be set at creation by a tenant.
       allow create: if isAuthenticated()
         && getUserRole() == "tenant"
+        && getUserStatus() == "active"
         && request.resource.data.tenantId == request.auth.uid
         && request.resource.data.status == "submitted"
-        && request.resource.data.keys().hasAll(["title", "description", "category", "priority", "status", "tenantId", "tenantName", "statusHistory", "createdAt", "clientTimestamp", "imageUrl"])
-        && request.resource.data.keys().hasOnly(["title", "description", "category", "priority", "status", "tenantId", "tenantName", "statusHistory", "createdAt", "clientTimestamp", "imageUrl"])
         && request.resource.data.title is string
         && request.resource.data.title.size() >= 5
         && request.resource.data.description is string
         && request.resource.data.description.size() >= 10
         && isValidCategory(request.resource.data.category)
-        && isValidPriority(request.resource.data.priority);
+        && isValidPriority(request.resource.data.priority)
+        && !("cost" in request.resource.data)
+        && !("payment" in request.resource.data);
 
-      // Update: role-based, field-constrained
+      // Update: role-based.
       allow update: if isAuthenticated() && (
 
-        // ── Manager: status transitions + assignment ──
-        // Preserves tenant ownership and creation timestamp
-        // Enforces valid status and state machine transitions
+        // ── Manager: status transitions, assignment, priority override, cost, payment ──
         (getUserRole() == "manager"
           && request.resource.data.tenantId == resource.data.tenantId
           && request.resource.data.tenantName == resource.data.tenantName
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.category == resource.data.category
           && isValidStatus(request.resource.data.status)
-          // Manager transition whitelist
           && (
             (resource.data.status == "submitted" && request.resource.data.status == "assigned")
             || (resource.data.status == "assigned" && request.resource.data.status == "on_hold")
             || (resource.data.status == "in_progress" && request.resource.data.status == "on_hold")
             || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
-            // Allow manager to update without status change (e.g., re-assign)
             || (request.resource.data.status == resource.data.status)
           )
         ) ||
 
-        // ── Tenant: content edits, cancellation, rating, image upload ──
+        // ── Tenant: content edits, cancellation, rating ──
         (getUserRole() == "tenant"
           && resource.data.tenantId == request.auth.uid
-          // Immutable ownership and metadata
           && request.resource.data.tenantId == resource.data.tenantId
           && request.resource.data.tenantName == resource.data.tenantName
           && request.resource.data.createdAt == resource.data.createdAt
-          && (!("assignedTo" in resource.data) || request.resource.data.assignedTo == resource.data.assignedTo)
+          && (!("assignedTo" in resource.data) || request.resource.data.get("assignedTo", "") == resource.data.assignedTo)
+          // Tenant must NEVER mutate money fields — only manager owns cost/payment.
+          && moneyFieldsUnchanged()
           && (
-            // Edit content fields ONLY when status is submitted (statusHistory immutable)
+            // Edit content while still submitted (statusHistory immutable)
             (request.resource.data.status == resource.data.status
               && resource.data.status == "submitted"
               && request.resource.data.statusHistory == resource.data.statusHistory)
-            // Cancel from submitted or assigned (statusHistory may change via arrayUnion)
+            // Cancel from submitted or assigned
             || (request.resource.data.status == "cancelled"
               && resource.data.status in ["submitted", "assigned"])
-            // Rate when completed (rating 1-5, preserve status, statusHistory immutable)
+            // Rate when completed
             || (request.resource.data.status == resource.data.status
               && resource.data.status == "completed"
               && request.resource.data.statusHistory == resource.data.statusHistory
@@ -137,7 +203,6 @@ service cloud.firestore {
         // ── Maintainer: status transitions only ──
         (getUserRole() == "maintainer"
           && resource.data.assignedTo == request.auth.uid
-          // All non-status fields immutable
           && request.resource.data.tenantId == resource.data.tenantId
           && request.resource.data.tenantName == resource.data.tenantName
           && request.resource.data.assignedTo == resource.data.assignedTo
@@ -146,14 +211,35 @@ service cloud.firestore {
           && request.resource.data.title == resource.data.title
           && request.resource.data.description == resource.data.description
           && request.resource.data.category == resource.data.category
-          && request.resource.data.priority == resource.data.priority
+          // Maintainer must NEVER mutate money fields.
+          && moneyFieldsUnchanged()
           && isValidStatus(request.resource.data.status)
-          // Transition whitelist
           && (
             (resource.data.status == "assigned" && request.resource.data.status in ["in_progress", "on_hold"])
             || (resource.data.status == "in_progress" && request.resource.data.status in ["completed", "on_hold"])
             || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
           )
+        ) ||
+
+        // ── Typing-indicator update: only the `typing` field may differ. ──
+        // Allowed for the request's tenant, the assigned maintainer, or any manager.
+        (request.auth != null
+          && (resource.data.tenantId == request.auth.uid
+               || resource.data.get("assignedTo", "") == request.auth.uid
+               || getUserRole() == "manager")
+          && request.resource.data.tenantId == resource.data.tenantId
+          && request.resource.data.tenantName == resource.data.tenantName
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.description == resource.data.description
+          && request.resource.data.category == resource.data.category
+          && request.resource.data.priority == resource.data.priority
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.statusHistory == resource.data.statusHistory
+          // Money fields and assignment must remain frozen during a typing ping.
+          && moneyFieldsUnchanged()
+          && fieldUnchanged("assignedTo")
+          && fieldUnchanged("assignedToName")
+          && fieldUnchanged("rating")
         )
       );
 
@@ -164,23 +250,32 @@ service cloud.firestore {
         allow read: if isAuthenticated() && (
           getUserRole() == "manager" ||
           get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
-          get(/databases/$(database)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
+          get(/databases/$(database)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
         );
 
         allow create: if isAuthenticated()
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.keys().hasAll(["senderId", "senderName", "text", "createdAt"])
-          && request.resource.data.keys().hasOnly(["senderId", "senderName", "text", "createdAt"])
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.senderName is string
           && (
             getUserRole() == "manager" ||
             get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
-            get(/databases/$(database)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
+            get(/databases/$(database)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
           );
 
-        allow update: if false;
+        // Allow read-receipt updates: only readBy and updatedAt, sender stays the same.
+        allow update: if isAuthenticated()
+          && request.resource.data.senderId == resource.data.senderId
+          && request.resource.data.senderName == resource.data.senderName
+          && request.resource.data.text == resource.data.text
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            getUserRole() == "manager" ||
+            get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
+            get(/databases/$(database)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
+          );
+
         allow delete: if false;
       }
 
@@ -191,8 +286,6 @@ service cloud.firestore {
         allow create: if isAuthenticated()
           && getUserRole() == "manager"
           && request.resource.data.managerId == request.auth.uid
-          && request.resource.data.keys().hasAll(["managerId", "managerName", "text", "createdAt"])
-          && request.resource.data.keys().hasOnly(["managerId", "managerName", "text", "createdAt"])
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.managerName is string;

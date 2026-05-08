@@ -696,6 +696,71 @@ describe("Requests collection", () => {
     });
   });
 
+  describe("money fields (cost / payment)", () => {
+    it("denies tenant injecting payment.status=paid on creation", async () => {
+      const db = authedDb(tenantId, "tenant1@test.com");
+      await assertFails(
+        addDoc(collection(db, "requests"), {
+          ...validRequest,
+          payment: { status: "paid", amount: 1, method: "cash" },
+        }),
+      );
+    });
+
+    it("denies tenant injecting cost on creation", async () => {
+      const db = authedDb(tenantId, "tenant1@test.com");
+      await assertFails(
+        addDoc(collection(db, "requests"), {
+          ...validRequest,
+          cost: { laborHours: 1, hourlyRate: 50, materialCost: 0, total: 50 },
+        }),
+      );
+    });
+
+    it("denies tenant editing payment via title update", async () => {
+      await seedRequest("req1", validRequest);
+      const db = authedDb(tenantId, "tenant1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          title: "Edited title",
+          payment: { status: "paid", amount: 1 },
+        }),
+      );
+    });
+
+    it("denies maintainer mutating payment alongside status transition", async () => {
+      await seedRequest("req1", {
+        ...validRequest,
+        status: "in_progress",
+        assignedTo: maintainerId,
+        assignedToName: "Maintainer One",
+      });
+      const db = authedDb(maintainerId, "maint1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          status: "completed",
+          payment: { status: "paid", amount: 999 },
+        }),
+      );
+    });
+
+    it("allows manager to set cost and payment", async () => {
+      await seedRequest("req1", {
+        ...validRequest,
+        status: "completed",
+        assignedTo: maintainerId,
+        assignedToName: "Maintainer One",
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertSucceeds(
+        updateDoc(doc(db, "requests", "req1"), {
+          cost: { laborHours: 2, hourlyRate: 80, materialCost: 50, total: 210 },
+          payment: { status: "paid", amount: 210, method: "cash" },
+        }),
+      );
+    });
+  });
+
   describe("delete", () => {
     it("denies deleting requests", async () => {
       await seedRequest("req1", validRequest);
