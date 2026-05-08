@@ -58,11 +58,11 @@ const mockUpload = uploadBytesResumable as jest.Mock;
 beforeEach(() => jest.clearAllMocks());
 
 describe("createRequest", () => {
-  it("creates a document with correct fields and defaults priority to medium", async () => {
+  it("creates a document with correct fields and auto-suggests a priority", async () => {
     const id = await createRequest({
-      title: "Leaky faucet",
-      description: "Kitchen faucet is dripping",
-      category: "Plumbing",
+      title: "Wall scuff",
+      description: "Small mark on hallway wall",
+      category: "General",
       tenantId: "user-1",
       tenantName: "John",
     });
@@ -71,10 +71,10 @@ describe("createRequest", () => {
     expect(mockAddDoc).toHaveBeenCalledWith(
       "mock-collection",
       expect.objectContaining({
-        title: "Leaky faucet",
-        description: "Kitchen faucet is dripping",
-        category: "Plumbing",
-        priority: "medium",
+        title: "Wall scuff",
+        description: "Small mark on hallway wall",
+        category: "General",
+        priority: "low",
         status: "submitted",
         tenantId: "user-1",
         tenantName: "John",
@@ -83,14 +83,15 @@ describe("createRequest", () => {
         createdAt: "mock-ts",
       }),
     );
+    const callArgs = mockAddDoc.mock.calls[0][1] as Record<string, unknown>;
+    expect(callArgs.prioritySuggestion).toMatchObject({ priority: "low", source: "auto" });
   });
 
-  it("uses provided priority", async () => {
+  it("auto-detects high priority from emergency keywords", async () => {
     await createRequest({
       title: "Emergency",
-      description: "Power outage",
+      description: "Power outage on second floor",
       category: "Electrical",
-      priority: "high",
       tenantId: "user-1",
       tenantName: "John",
     });

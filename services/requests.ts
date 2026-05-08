@@ -23,18 +23,28 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { db, storage } from "@/config/firebase";
-import { MaintenanceRequest, RequestStatus, RequestCategory, RequestPriority, UserRole } from "@/types";
-import { canCancel, canTransitionWithRole } from "@/utils/status";
+import {
+  MaintenanceRequest,
+  RequestStatus,
+  RequestCategory,
+  RequestPriority,
+  PrioritySuggestion,
+  UserRole,
+} from "@/types";
+import { canCancel, canTransitionWithRole, getStatusLabel } from "@/utils/status";
+import { suggestPriority } from "@/utils/priority";
+import { createNotification } from "@/services/notifications";
 
 const REQUESTS_COLLECTION = "requests";
+const USERS_COLLECTION = "users";
 
 export interface CreateRequestInput {
   title: string;
   description: string;
   category: RequestCategory;
-  priority?: RequestPriority;
   tenantId: string;
   tenantName: string;
+  tenantUnit?: string;
   imageUri?: string;
 }
 
@@ -58,16 +68,49 @@ async function uploadRequestImage(uri: string, requestId: string): Promise<strin
   });
 }
 
-/** Create a new maintenance request. Image upload failures are handled gracefully. */
+/** Best-effort: notify every manager. Failures are silenced (notification UX only). */
+async function notifyAllManagers(args: {
+  kind: Parameters<typeof createNotification>[1]["kind"];
+  title: string;
+  body: string;
+  requestId?: string;
+  actorId?: string;
+  actorName?: string;
+}) {
+  try {
+    const managersSnap = await getDocs(
+      query(collection(db, USERS_COLLECTION), where("role", "==", "manager")),
+    );
+    await Promise.all(
+      managersSnap.docs.map((d) =>
+        createNotification(d.id, {
+          kind: args.kind,
+          title: args.title,
+          body: args.body,
+          requestId: args.requestId,
+          actorId: args.actorId,
+          actorName: args.actorName,
+        }).catch(() => {}),
+      ),
+    );
+  } catch {
+    // Never block the user-visible action on notification fan-out.
+  }
+}
+
+/** Create a new maintenance request. Auto-suggests a priority — manager has final say. */
 export async function createRequest(input: CreateRequestInput): Promise<string> {
+  const suggestion: PrioritySuggestion = suggestPriority(input.title, input.description, input.category);
   const docRef = await addDoc(collection(db, REQUESTS_COLLECTION), {
     title: input.title,
     description: input.description,
     category: input.category,
-    priority: input.priority ?? "medium",
+    priority: suggestion.priority,
+    prioritySuggestion: suggestion,
     status: "submitted" as RequestStatus,
     tenantId: input.tenantId,
     tenantName: input.tenantName,
+    ...(input.tenantUnit ? { tenantUnit: input.tenantUnit } : {}),
     imageUrl: null,
     statusHistory: [],
     createdAt: serverTimestamp(),
@@ -79,17 +122,24 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
       const imageUrl = await uploadRequestImage(input.imageUri, docRef.id);
       await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrl });
     } catch {
-      // Request created successfully but image upload failed.
-      // The request is still valid without an image — return the ID
-      // so the user can see it and optionally re-upload later.
-      console.warn(`[createRequest] Image upload failed for request ${docRef.id}, continuing without image`);
+      console.warn(`[createRequest] Image upload failed for ${docRef.id}, continuing without image`);
     }
   }
+
+  // Fan-out notification to all managers — best-effort.
+  void notifyAllManagers({
+    kind: "request_created",
+    title: "New maintenance request",
+    body: `${input.tenantName} reported: ${input.title} (${suggestion.priority.toUpperCase()} priority — ${suggestion.reason})`,
+    requestId: docRef.id,
+    actorId: input.tenantId,
+    actorName: input.tenantName,
+  });
 
   return docRef.id;
 }
 
-/** Update request status with role-based transition validation. Throws on invalid transition. */
+/** Update request status with role-based transition validation. */
 export async function updateRequestStatus(
   requestId: string,
   currentStatus: RequestStatus,
@@ -119,6 +169,24 @@ export async function updateRequest(
   fields: Partial<Pick<MaintenanceRequest, "title" | "description" | "category" | "priority">>,
 ): Promise<void> {
   await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), fields);
+}
+
+/** Manager sets a custom priority — overrides any auto-suggestion. */
+export async function setPriority(
+  requestId: string,
+  priority: RequestPriority,
+  setById: string,
+  setByName: string,
+  reason?: string,
+): Promise<void> {
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    priority,
+    prioritySuggestion: {
+      priority,
+      reason: reason || `Set by ${setByName}`,
+      source: "manager",
+    } satisfies PrioritySuggestion,
+  });
 }
 
 /** Submit a 1-5 star rating with optional comment for a completed request. */
@@ -158,7 +226,7 @@ export async function cancelRequest(
   });
 }
 
-/** Assign a request to a maintainer. Manager-only operation. */
+/** Assign a request to a maintainer. Manager-only operation. Notifies the maintainer + tenant. */
 export async function assignRequest(
   requestId: string,
   currentStatus: RequestStatus,
@@ -168,6 +236,8 @@ export async function assignRequest(
   estimatedArrival: string,
   userId: string,
   userName: string,
+  tenantId?: string,
+  jobTitle?: string,
 ): Promise<void> {
   if (!canTransitionWithRole(currentStatus, "assigned", "manager")) {
     throw new Error(`Invalid transition: ${currentStatus} → assigned for role manager`);
@@ -186,6 +256,28 @@ export async function assignRequest(
       changedAt: Timestamp.now(),
     }),
   });
+
+  // Notify the maintainer
+  void createNotification(assigneeId, {
+    kind: "request_assigned",
+    title: "New job assigned",
+    body: `${userName} assigned you to ${jobTitle ?? "a maintenance request"}${estimatedArrival ? ` — ETA ${estimatedArrival}` : ""}.`,
+    requestId,
+    actorId: userId,
+    actorName: userName,
+  }).catch(() => {});
+
+  // Notify the tenant
+  if (tenantId) {
+    void createNotification(tenantId, {
+      kind: "request_assigned",
+      title: "Your request is on the way",
+      body: `${assigneeName} has been assigned to ${jobTitle ?? "your request"}${estimatedArrival ? ` (ETA ${estimatedArrival})` : ""}.`,
+      requestId,
+      actorId: userId,
+      actorName: userName,
+    }).catch(() => {});
+  }
 }
 
 /** Put a request on hold from assigned or in_progress status. */
@@ -196,6 +288,8 @@ export async function putOnHold(
   userName: string,
   role: UserRole,
   note?: string,
+  tenantId?: string,
+  jobTitle?: string,
 ): Promise<void> {
   if (!canTransitionWithRole(currentStatus, "on_hold", role)) {
     throw new Error(`Invalid transition: ${currentStatus} → on_hold for role ${role}`);
@@ -211,6 +305,17 @@ export async function putOnHold(
       ...(note ? { note } : {}),
     }),
   });
+
+  if (tenantId) {
+    void createNotification(tenantId, {
+      kind: "request_status_changed",
+      title: "Request on hold",
+      body: `${jobTitle ?? "Your request"} has been placed on hold${note ? `: ${note}` : "."}`,
+      requestId,
+      actorId: userId,
+      actorName: userName,
+    }).catch(() => {});
+  }
 }
 
 /** Resume a request from on_hold back to assigned or in_progress. */
@@ -220,6 +325,8 @@ export async function resumeRequest(
   userId: string,
   userName: string,
   role: UserRole,
+  tenantId?: string,
+  jobTitle?: string,
 ): Promise<void> {
   if (!canTransitionWithRole("on_hold", resumeTo, role)) {
     throw new Error(`Invalid transition: on_hold → ${resumeTo} for role ${role}`);
@@ -234,6 +341,17 @@ export async function resumeRequest(
       changedAt: Timestamp.now(),
     }),
   });
+
+  if (tenantId) {
+    void createNotification(tenantId, {
+      kind: "request_status_changed",
+      title: "Request resumed",
+      body: `${jobTitle ?? "Your request"} is now ${getStatusLabel(resumeTo).toLowerCase()}.`,
+      requestId,
+      actorId: userId,
+      actorName: userName,
+    }).catch(() => {});
+  }
 }
 
 /** Mark a request as completed. Sets resolvedAt timestamp. Maintainer-only. */
@@ -242,6 +360,8 @@ export async function completeRequest(
   currentStatus: RequestStatus,
   userId: string,
   userName: string,
+  tenantId?: string,
+  jobTitle?: string,
 ): Promise<void> {
   if (!canTransitionWithRole(currentStatus, "completed", "maintainer")) {
     throw new Error(`Invalid transition: ${currentStatus} → completed for role maintainer`);
@@ -257,6 +377,62 @@ export async function completeRequest(
       changedAt: Timestamp.now(),
     }),
   });
+
+  if (tenantId) {
+    void createNotification(tenantId, {
+      kind: "request_completed",
+      title: "Maintenance complete",
+      body: `${userName} marked ${jobTitle ?? "your request"} as completed. Please rate the service!`,
+      requestId,
+      actorId: userId,
+      actorName: userName,
+    }).catch(() => {});
+  }
+
+  // Also notify any manager so the dashboard reflects it
+  void notifyAllManagers({
+    kind: "request_completed",
+    title: "Job completed",
+    body: `${userName} completed ${jobTitle ?? "a request"}.`,
+    requestId,
+    actorId: userId,
+    actorName: userName,
+  });
+}
+
+/** Maintainer accepts an assigned job — moves it to in_progress. */
+export async function startWork(
+  requestId: string,
+  currentStatus: RequestStatus,
+  userId: string,
+  userName: string,
+  tenantId?: string,
+  jobTitle?: string,
+): Promise<void> {
+  if (!canTransitionWithRole(currentStatus, "in_progress", "maintainer")) {
+    throw new Error(`Invalid transition: ${currentStatus} → in_progress for role maintainer`);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    status: "in_progress" as RequestStatus,
+    statusHistory: arrayUnion({
+      from: currentStatus,
+      to: "in_progress" as RequestStatus,
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+
+  if (tenantId) {
+    void createNotification(tenantId, {
+      kind: "request_status_changed",
+      title: "Work started",
+      body: `${userName} has started working on ${jobTitle ?? "your request"}.`,
+      requestId,
+      actorId: userId,
+      actorName: userName,
+    }).catch(() => {});
+  }
 }
 
 export const PAGE_SIZE = 20;
@@ -294,7 +470,6 @@ export function subscribeToTenantRequests(
   );
 }
 
-/** Load next page of tenant's requests. */
 export async function loadMoreTenantRequests(
   tenantId: string,
   afterDoc: QueryDocumentSnapshot<DocumentData>,
@@ -315,7 +490,6 @@ export async function loadMoreTenantRequests(
   };
 }
 
-/** Subscribe to first page of maintainer's requests (real-time). */
 export function subscribeToMaintainerRequests(
   maintainerId: string,
   callback: (requests: MaintenanceRequest[], lastDoc: QueryDocumentSnapshot<DocumentData> | null) => void,
@@ -342,7 +516,6 @@ export function subscribeToMaintainerRequests(
   );
 }
 
-/** Load next page of maintainer's requests. */
 export async function loadMoreMaintainerRequests(
   maintainerId: string,
   afterDoc: QueryDocumentSnapshot<DocumentData>,
@@ -363,7 +536,6 @@ export async function loadMoreMaintainerRequests(
   };
 }
 
-/** Subscribe to first page of all requests (real-time, manager dashboard). */
 export function subscribeToAllRequests(
   callback: (requests: MaintenanceRequest[], lastDoc: QueryDocumentSnapshot<DocumentData> | null) => void,
   onError?: (error: Error) => void,
@@ -388,7 +560,6 @@ export function subscribeToAllRequests(
   );
 }
 
-/** Load next page of all requests. */
 export async function loadMoreAllRequests(
   afterDoc: QueryDocumentSnapshot<DocumentData>,
 ): Promise<PaginatedResult> {
@@ -407,7 +578,6 @@ export async function loadMoreAllRequests(
   };
 }
 
-/** Subscribe to real-time updates for a single request. Returns unsubscribe function. */
 export function subscribeToRequest(
   requestId: string,
   callback: (request: MaintenanceRequest | null) => void,
@@ -421,6 +591,33 @@ export function subscribeToRequest(
         return;
       }
       callback({ id: snapshot.id, ...snapshot.data() } as MaintenanceRequest);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+/**
+ * Subscribe to all completed requests assigned to a maintainer that have a non-empty
+ * cost. Used by the earnings page.
+ */
+export function subscribeToMaintainerEarnings(
+  maintainerId: string,
+  callback: (requests: MaintenanceRequest[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const q = query(
+    collection(db, REQUESTS_COLLECTION),
+    where("assignedTo", "==", maintainerId),
+    where("status", "==", "completed"),
+    orderBy("createdAt", "desc"),
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const requests = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as MaintenanceRequest)
+        .filter((r) => r.cost && r.cost.total > 0);
+      callback(requests);
     },
     (error) => onError?.(error),
   );

@@ -52,7 +52,6 @@ describe("Request lifecycle: create → assign → in_progress → complete → 
       title: "Broken window",
       description: "Living room window cracked in the corner",
       category: "General",
-      priority: "high",
       tenantId: "tenant-1",
       tenantName: "Alice",
     });
