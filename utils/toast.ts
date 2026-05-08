@@ -1,11 +1,11 @@
 import Toast from "react-native-toast-message";
 
-export function showSuccess(message: string): void {
+export function showSuccess(titleOrMessage: string, message?: string): void {
   Toast.show({
     type: "success",
-    text1: "Success",
-    text2: message,
-    visibilityTime: 2000,
+    text1: message ? titleOrMessage : "Success",
+    text2: message ?? titleOrMessage,
+    visibilityTime: 2200,
     topOffset: 60,
   });
 }
@@ -20,10 +20,11 @@ export function showError(title: string, message?: string): void {
   });
 }
 
-export function showInfo(message: string): void {
+export function showInfo(titleOrMessage: string, message?: string): void {
   Toast.show({
     type: "info",
-    text1: message,
+    text1: message ? titleOrMessage : "Info",
+    text2: message ?? titleOrMessage,
     visibilityTime: 3000,
     topOffset: 60,
   });

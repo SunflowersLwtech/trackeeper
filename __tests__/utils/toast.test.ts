@@ -21,7 +21,18 @@ describe("showSuccess", () => {
         type: "success",
         text1: "Success",
         text2: "Request submitted",
-        visibilityTime: 2000,
+        visibilityTime: 2200,
+      }),
+    );
+  });
+
+  it("uses provided title when both title and message given", () => {
+    showSuccess("Saved", "Changes persisted");
+    expect(mockShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "success",
+        text1: "Saved",
+        text2: "Changes persisted",
       }),
     );
   });
@@ -58,8 +69,20 @@ describe("showInfo", () => {
     expect(mockShow).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "info",
-        text1: "Pull down to refresh",
+        text1: "Info",
+        text2: "Pull down to refresh",
         visibilityTime: 3000,
+      }),
+    );
+  });
+
+  it("uses provided title when both title and message given", () => {
+    showInfo("Heads up", "New version available");
+    expect(mockShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "info",
+        text1: "Heads up",
+        text2: "New version available",
       }),
     );
   });
