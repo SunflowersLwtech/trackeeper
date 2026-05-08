@@ -3,6 +3,7 @@ import { View, Text, FlatList, Animated, RefreshControl, TouchableOpacity } from
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAllRequests } from "@/hooks/useRequests";
+import { usePendingTenants } from "@/hooks/usePendingTenants";
 import { RequestCard } from "@/components/request/RequestCard";
 import { FilterToolbar, ActiveFilter } from "@/components/request/FilterToolbar";
 import { FilterSheet, FilterSection } from "@/components/request/FilterSheet";
@@ -21,6 +22,7 @@ const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "on_hold
 export default function ManagerDashboardScreen() {
   const c = useColors();
   const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useAllRequests();
+  const { tenants: pendingTenants } = usePendingTenants();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<RequestCategory | "all">("all");
@@ -155,6 +157,48 @@ export default function ManagerDashboardScreen() {
   return (
     <WebContainer>
     <View className="flex-1" style={{ backgroundColor: c.background }}>
+      {pendingTenants.length > 0 && (
+        <TouchableOpacity
+          onPress={() => router.push("/(manager)/approvals")}
+          activeOpacity={0.85}
+          style={{
+            marginHorizontal: 16,
+            marginTop: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: c.warning + "1a",
+            borderWidth: 1,
+            borderColor: c.warning + "55",
+          }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: c.warning,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
+            }}
+          >
+            <Ionicons name="person-add" size={18} color={c.background} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: c.text, fontWeight: "700", fontSize: 14 }}>
+              {pendingTenants.length} tenant{pendingTenants.length === 1 ? "" : "s"} waiting for approval
+            </Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Tap to review applications
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={c.textMuted} />
+        </TouchableOpacity>
+      )}
+
       <FilterToolbar
         search={search}
         onSearchChange={setSearch}

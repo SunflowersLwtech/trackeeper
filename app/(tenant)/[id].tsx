@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRequest } from "@/hooks/useRequest";
 import { useMessages } from "@/hooks/useMessages";
 import { sendMessage } from "@/services/messages";
+import { uploadChatImage } from "@/services/chatStorage";
 import { cancelRequest, rateRequest } from "@/services/requests";
 import { canCancel } from "@/utils/status";
 import { showSuccess, showError } from "@/utils/toast";
@@ -31,17 +32,28 @@ export default function TenantRequestDetailScreen() {
   const { user } = useAuth();
   const c = useColors();
   const { request, loading, error: requestError } = useRequest(id);
-  const { messages, loading: messagesLoading, error: messagesError } = useMessages(id);
+  const {
+    messages,
+    loading: messagesLoading,
+    error: messagesError,
+    othersTyping,
+    setTyping,
+  } = useMessages(id, { currentUserId: user?.uid, currentUserName: user?.name });
   const [cancelling, setCancelling] = useState(false);
   const { confirm, confirmProps } = useConfirm();
   const [pendingRating, setPendingRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, imageUri?: string) => {
     if (!id || !user) return;
     try {
-      await sendMessage(id, user.uid, user.name, text);
+      let imageUrl: string | undefined;
+      if (imageUri) {
+        imageUrl = await uploadChatImage(imageUri, id);
+      }
+      await sendMessage(id, user.uid, user.name, text, imageUrl);
+      setTyping(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to send message";
       showError("Send Failed", msg);
@@ -261,6 +273,9 @@ export default function TenantRequestDetailScreen() {
         loading={messagesLoading}
         error={messagesError}
         onSend={handleSend}
+        requestId={id}
+        othersTyping={othersTyping}
+        onTypingChange={setTyping}
       />
       <ConfirmModal {...confirmProps} />
     </View>

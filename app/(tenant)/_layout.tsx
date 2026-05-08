@@ -1,7 +1,9 @@
 import { Tabs, Redirect } from "expo-router";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 export default function TenantLayout() {
   const { user } = useAuth();
@@ -19,6 +21,11 @@ export default function TenantLayout() {
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
         headerShadowVisible: false,
+        headerRight: () => (
+          <View style={{ marginRight: 12 }}>
+            <NotificationBell />
+          </View>
+        ),
       }}
     >
       <Tabs.Screen
