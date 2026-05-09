@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "@/config/firebase";
 import { sendCurrentUserEmailVerification } from "@/services/auth";
@@ -13,6 +14,9 @@ import { FONT, BORDER, SHADOW_SM } from "@/constants/Brutalism";
  * dismiss it for the current session.
  */
 export function VerifyEmailBanner() {
+  // Account for the iOS status bar / Dynamic Island so the banner sits below
+  // the clock + signal icons. Pixel/Android also has a status bar inset.
+  const insets = useSafeAreaInsets();
   const [needsVerify, setNeedsVerify] = useState<boolean>(
     () => auth.currentUser != null && !auth.currentUser.emailVerified,
   );
@@ -55,7 +59,8 @@ export function VerifyEmailBanner() {
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingTop: 10 + insets.top,
+        paddingBottom: 10,
         backgroundColor: palette.mustard50,
         borderBottomWidth: BORDER.base,
         borderBottomColor: palette.ink,
