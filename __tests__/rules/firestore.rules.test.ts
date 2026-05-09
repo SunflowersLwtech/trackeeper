@@ -758,7 +758,7 @@ describe("Requests collection", () => {
       );
     });
 
-    it("allows manager to set cost and payment", async () => {
+    it("allows manager to initialise cost + payment.status='unpaid'", async () => {
       await seedRequest("req1", {
         ...validRequest,
         status: "completed",
@@ -769,7 +769,119 @@ describe("Requests collection", () => {
       await assertSucceeds(
         updateDoc(doc(db, "requests", "req1"), {
           cost: { laborHours: 2, hourlyRate: 80, materialCost: 50, total: 210 },
-          payment: { status: "paid", amount: 210, method: "cash" },
+          payment: { status: "unpaid", amount: 210 },
+        }),
+      );
+    });
+  });
+
+  describe("payment status transitions (rules-level)", () => {
+    const baseDone = {
+      ...validRequest,
+      status: "completed",
+      assignedTo: maintainerId,
+      assignedToName: "Maintainer One",
+    };
+
+    it("allows unpaid → paid", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "unpaid", amount: 80 },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertSucceeds(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "paid", amount: 80, method: "cash" },
+        }),
+      );
+    });
+
+    it("allows unpaid → pending", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "unpaid", amount: 80 },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertSucceeds(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "pending", amount: 80, method: "bank_transfer" },
+        }),
+      );
+    });
+
+    it("allows paid → refunded", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "paid", amount: 80, method: "cash", reference: "TKP-X" },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertSucceeds(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: {
+            status: "refunded",
+            amount: 80,
+            method: "cash",
+            reference: "TKP-X",
+            refundReason: "wrong job",
+          },
+        }),
+      );
+    });
+
+    it("denies paid → unpaid (rollback attempt)", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "paid", amount: 80, method: "cash" },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "unpaid", amount: 80 },
+        }),
+      );
+    });
+
+    it("denies refunded → paid (terminal state)", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "refunded", amount: 80, method: "cash" },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "paid", amount: 80, method: "cash" },
+        }),
+      );
+    });
+
+    it("denies refunded → unpaid (terminal state)", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+        payment: { status: "refunded", amount: 80, method: "cash" },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "unpaid", amount: 80 },
+        }),
+      );
+    });
+
+    it("denies invalid first-init payment.status (must be unpaid)", async () => {
+      await seedRequest("req1", {
+        ...baseDone,
+        cost: { laborHours: 1, hourlyRate: 80, materialCost: 0, total: 80 },
+      });
+      const db = authedDb(managerId, "manager1@test.com");
+      await assertFails(
+        updateDoc(doc(db, "requests", "req1"), {
+          payment: { status: "paid", amount: 80, method: "cash" },
         }),
       );
     });

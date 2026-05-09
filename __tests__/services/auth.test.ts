@@ -4,6 +4,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   deleteUser,
+  sendPasswordResetEmail,
+  sendEmailVerification,
 } from "firebase/auth";
 import { setDoc, getDoc } from "firebase/firestore";
 
@@ -13,6 +15,8 @@ jest.mock("firebase/auth", () => ({
   signOut: jest.fn().mockResolvedValue(undefined),
   onAuthStateChanged: jest.fn(() => jest.fn()),
   deleteUser: jest.fn().mockResolvedValue(undefined),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+  sendEmailVerification: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("firebase/firestore", () => ({
@@ -22,12 +26,27 @@ jest.mock("firebase/firestore", () => ({
   serverTimestamp: jest.fn(() => "mock-ts"),
 }));
 
+const mockAuth: { currentUser: { emailVerified: boolean } | null } = {
+  currentUser: null,
+};
 jest.mock("@/config/firebase", () => ({
-  auth: "mock-auth",
+  get auth() { return mockAuth; },
   db: "mock-db",
 }));
 
-import { signIn, signUp, signOut, getUserProfile, updateUserProfile, onAuthChange } from "@/services/auth";
+import {
+  signIn,
+  signUp,
+  signOut,
+  getUserProfile,
+  updateUserProfile,
+  onAuthChange,
+  requestPasswordReset,
+  sendCurrentUserEmailVerification,
+} from "@/services/auth";
+
+const mockSendReset = sendPasswordResetEmail as jest.Mock;
+const mockSendVerify = sendEmailVerification as jest.Mock;
 
 const mockSignIn = signInWithEmailAndPassword as jest.Mock;
 const mockCreateUser = createUserWithEmailAndPassword as jest.Mock;
@@ -49,7 +68,7 @@ describe("signIn", () => {
 
     const user = await signIn("a@b.com", "pass123");
     expect(user).toEqual(mockUser);
-    expect(mockSignIn).toHaveBeenCalledWith("mock-auth", "a@b.com", "pass123");
+    expect(mockSignIn).toHaveBeenCalledWith(mockAuth, "a@b.com", "pass123");
   });
 
   it("propagates auth errors", async () => {
@@ -75,7 +94,7 @@ describe("signUp", () => {
 
     const result = await signUp("test@test.com", "pass123", "Test User", "tenant", "A-12");
 
-    expect(mockCreateUser).toHaveBeenCalledWith("mock-auth", "test@test.com", "pass123");
+    expect(mockCreateUser).toHaveBeenCalledWith(mockAuth, "test@test.com", "pass123");
     expect(mockSetDoc).toHaveBeenCalledWith("mock-doc-ref", {
       uid: "new-uid",
       email: "test@test.com",
@@ -123,7 +142,7 @@ describe("signUp", () => {
 describe("signOut", () => {
   it("calls firebase signOut", async () => {
     await signOut();
-    expect(mockFirebaseSignOut).toHaveBeenCalledWith("mock-auth");
+    expect(mockFirebaseSignOut).toHaveBeenCalledWith(mockAuth);
   });
 });
 
@@ -161,7 +180,54 @@ describe("onAuthChange", () => {
     const callback = jest.fn();
     const unsub = onAuthChange(callback);
 
-    expect(mockOnAuthStateChanged).toHaveBeenCalledWith("mock-auth", callback);
+    expect(mockOnAuthStateChanged).toHaveBeenCalledWith(mockAuth, callback);
     expect(unsub).toBe(mockUnsub);
+  });
+});
+
+describe("requestPasswordReset", () => {
+  it("calls Firebase sendPasswordResetEmail with trimmed email", async () => {
+    await requestPasswordReset("  alice@demo.trackeeper.app  ");
+    expect(mockSendReset).toHaveBeenCalledWith(mockAuth, "alice@demo.trackeeper.app");
+  });
+
+  it("swallows auth/user-not-found to prevent account enumeration", async () => {
+    const err = Object.assign(new Error("not found"), { code: "auth/user-not-found" });
+    mockSendReset.mockRejectedValueOnce(err);
+    await expect(requestPasswordReset("ghost@x.com")).resolves.toBeUndefined();
+  });
+
+  it("swallows auth/invalid-email so the surface looks identical", async () => {
+    const err = Object.assign(new Error("bad format"), { code: "auth/invalid-email" });
+    mockSendReset.mockRejectedValueOnce(err);
+    await expect(requestPasswordReset("???")).resolves.toBeUndefined();
+  });
+
+  it("re-throws unexpected errors (network etc.) so the UI can surface them", async () => {
+    const err = Object.assign(new Error("offline"), { code: "auth/network-request-failed" });
+    mockSendReset.mockRejectedValueOnce(err);
+    await expect(requestPasswordReset("alice@x.com")).rejects.toThrow("offline");
+  });
+});
+
+describe("sendCurrentUserEmailVerification", () => {
+  beforeEach(() => {
+    mockAuth.currentUser = null;
+  });
+
+  it("throws when no user is signed in", async () => {
+    await expect(sendCurrentUserEmailVerification()).rejects.toThrow(/not signed in/i);
+  });
+
+  it("returns false (no-op) when already verified", async () => {
+    mockAuth.currentUser = { emailVerified: true };
+    await expect(sendCurrentUserEmailVerification()).resolves.toBe(false);
+    expect(mockSendVerify).not.toHaveBeenCalled();
+  });
+
+  it("sends a verification email and returns true when not yet verified", async () => {
+    mockAuth.currentUser = { emailVerified: false };
+    await expect(sendCurrentUserEmailVerification()).resolves.toBe(true);
+    expect(mockSendVerify).toHaveBeenCalledWith(mockAuth.currentUser);
   });
 });

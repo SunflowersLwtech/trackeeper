@@ -12,7 +12,7 @@ export type RequestCategory = "Plumbing" | "Electrical" | "General";
 
 export type RequestPriority = "low" | "medium" | "high";
 
-export type PaymentStatus = "unpaid" | "pending" | "paid";
+export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
 
 export type PaymentMethod = "bank_transfer" | "cash" | "card";
 
@@ -72,6 +72,10 @@ export interface RequestPayment {
   paidTo?: string;
   paidToName?: string;
   reference?: string;
+  refundedAt?: Timestamp;
+  refundedBy?: string;
+  refundedByName?: string;
+  refundReason?: string;
 }
 
 export interface MaintenanceRequest {

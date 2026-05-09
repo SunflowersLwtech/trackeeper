@@ -43,6 +43,30 @@ service cloud.firestore {
       return s in ["pending_approval", "active", "suspended", "rejected"];
     }
 
+    // Allowed payment status transitions:
+    //   absent  → unpaid                  (first cost write)
+    //   unpaid  → pending | paid
+    //   pending → paid | unpaid
+    //   paid    → refunded                (terminal once refunded)
+    //   refunded → (no further changes)
+    //   any     → unchanged is always OK
+    // We use `.get(...)` everywhere so accessing payment when it's absent
+    // returns "" instead of throwing — Firestore rules eagerly evaluate
+    // both sides of `||`, so a property access on a missing field would
+    // poison the entire expression with an evaluation error.
+    function paymentTransitionOk() {
+      return (request.resource.data.get("payment", {}).get("status", "")
+                == resource.data.get("payment", {}).get("status", ""))
+        || (resource.data.get("payment", {}).get("status", "") == ""
+              && request.resource.data.get("payment", {}).get("status", "") == "unpaid")
+        || (resource.data.get("payment", {}).get("status", "") == "unpaid"
+              && request.resource.data.get("payment", {}).get("status", "") in ["pending", "paid"])
+        || (resource.data.get("payment", {}).get("status", "") == "pending"
+              && request.resource.data.get("payment", {}).get("status", "") in ["paid", "unpaid"])
+        || (resource.data.get("payment", {}).get("status", "") == "paid"
+              && request.resource.data.get("payment", {}).get("status", "") == "refunded");
+    }
+
     // Returns true if the named field on the request is unchanged across the
     // pending update — accounts for the field being absent on either side.
     function fieldUnchanged(name) {
@@ -164,6 +188,11 @@ service cloud.firestore {
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.category == resource.data.category
           && isValidStatus(request.resource.data.status)
+          // Money flow follows the documented state machine — clients still
+          // need to pass through services/payments.ts for the full guards
+          // (idempotency, amount match), but rules block obviously-invalid
+          // transitions like paid→unpaid or refunded→paid here too.
+          && paymentTransitionOk()
           && (
             (resource.data.status == "submitted" && request.resource.data.status == "assigned")
             || (resource.data.status == "assigned" && request.resource.data.status == "on_hold")

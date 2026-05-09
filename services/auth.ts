@@ -4,6 +4,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   deleteUser,
+  sendPasswordResetEmail,
+  sendEmailVerification,
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -99,4 +101,38 @@ export async function updateUserProfile(
 /** Subscribe to Firebase auth state changes. Returns unsubscribe function. */
 export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Send a password-reset email. Resolves silently for both existing and
+ * non-existing emails so callers cannot use this to enumerate accounts.
+ * Errors other than user-not-found are re-thrown for the UI to surface.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error: unknown) {
+    const code = (error as { code?: string })?.code ?? "";
+    // Treat "no such user" as success so we don't leak account existence.
+    if (code === "auth/user-not-found" || code === "auth/invalid-email") {
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Send the currently signed-in user a verification email. No-op if the user is
+ * already verified, throws if no user is signed in.
+ */
+export async function sendCurrentUserEmailVerification(): Promise<boolean> {
+  const current = auth.currentUser;
+  if (!current) {
+    throw new Error("Not signed in");
+  }
+  if (current.emailVerified) {
+    return false;
+  }
+  await sendEmailVerification(current);
+  return true;
 }

@@ -15,14 +15,14 @@ describe("priority utils", () => {
   });
 
   describe("PRIORITY_COLORS", () => {
-    it("has red for high", () => {
-      expect(PRIORITY_COLORS.high).toBe("#ef4444");
+    it("has tomato for high", () => {
+      expect(PRIORITY_COLORS.high).toBe("#FF4D2E");
     });
-    it("has amber for medium", () => {
-      expect(PRIORITY_COLORS.medium).toBe("#f59e0b");
+    it("has mustard for medium", () => {
+      expect(PRIORITY_COLORS.medium).toBe("#F4B400");
     });
-    it("has green for low", () => {
-      expect(PRIORITY_COLORS.low).toBe("#22c55e");
+    it("has lime for low", () => {
+      expect(PRIORITY_COLORS.low).toBe("#5BD27D");
     });
   });
 
@@ -36,9 +36,9 @@ describe("priority utils", () => {
 
   describe("getPriorityColor", () => {
     it("returns correct color for each priority", () => {
-      expect(getPriorityColor("high")).toBe("#ef4444");
-      expect(getPriorityColor("medium")).toBe("#f59e0b");
-      expect(getPriorityColor("low")).toBe("#22c55e");
+      expect(getPriorityColor("high")).toBe("#FF4D2E");
+      expect(getPriorityColor("medium")).toBe("#F4B400");
+      expect(getPriorityColor("low")).toBe("#5BD27D");
     });
 
     it("returns fallback for unknown priority", () => {
