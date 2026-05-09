@@ -182,7 +182,14 @@ describe("sendLocalNotification", () => {
     await sendLocalNotification("Test Title", "Test Body");
 
     expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
-      content: { title: "Test Title", body: "Test Body", sound: true },
+      content: {
+        title: "Test Title",
+        body: "Test Body",
+        sound: true,
+        // Empty deep-link data is included so the OS push payload is
+        // shaped consistently — extracted by the in-app handler when set.
+        data: {},
+      },
       trigger: null,
     });
   });

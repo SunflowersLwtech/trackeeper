@@ -3,11 +3,21 @@ jest.mock("firebase/firestore", () => ({
   addDoc: jest.fn(),
   updateDoc: jest.fn(() => Promise.resolve()),
   doc: jest.fn(() => "mock-doc-ref"),
+  getDoc: jest.fn(() => Promise.resolve({ exists: () => false })),
+  getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
+  startAfter: jest.fn(),
+  arrayUnion: jest.fn((...args: unknown[]) => args),
   query: jest.fn(),
   where: jest.fn(),
   orderBy: jest.fn(),
+  limit: jest.fn(),
   onSnapshot: jest.fn(),
   serverTimestamp: jest.fn(() => "mock-timestamp"),
+  Timestamp: {
+    now: jest.fn(() => "mock-timestamp"),
+    fromDate: jest.fn((d: Date) => ({ toMillis: () => d.getTime(), toDate: () => d })),
+    fromMillis: jest.fn((ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) })),
+  },
   Unsubscribe: jest.fn(),
 }));
 jest.mock("firebase/storage", () => ({
@@ -54,11 +64,15 @@ describe("rateRequest", () => {
 describe("updateRequest", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("updates specified fields", async () => {
+  it("updates specified fields and re-derives titleTokens when title changes", async () => {
     await updateRequest("req-1", { title: "New Title", priority: "high" });
-    expect(updateDoc).toHaveBeenCalledWith("mock-doc-ref", {
-      title: "New Title",
-      priority: "high",
-    });
+    expect(updateDoc).toHaveBeenCalledWith(
+      "mock-doc-ref",
+      expect.objectContaining({
+        title: "New Title",
+        priority: "high",
+        titleTokens: expect.arrayContaining(["new", "title"]),
+      }),
+    );
   });
 });

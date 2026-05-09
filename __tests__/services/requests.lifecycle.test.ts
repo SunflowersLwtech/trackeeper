@@ -13,6 +13,12 @@ jest.mock("firebase/firestore", () => ({
   addDoc: jest.fn().mockResolvedValue({ id: "lifecycle-req-1" }),
   updateDoc: jest.fn().mockResolvedValue(undefined),
   doc: jest.fn(() => "mock-doc-ref"),
+  getDoc: jest.fn().mockResolvedValue({
+    exists: () => true,
+    data: () => ({ status: "submitted", tenantId: "u-tenant", tenantName: "Tenant" }),
+  }),
+  getDocs: jest.fn().mockResolvedValue({ docs: [] }),
+  startAfter: jest.fn(),
   query: jest.fn(() => "mock-query"),
   where: jest.fn(),
   orderBy: jest.fn(),
@@ -20,7 +26,11 @@ jest.mock("firebase/firestore", () => ({
   onSnapshot: jest.fn(() => jest.fn()),
   serverTimestamp: jest.fn(() => "mock-ts"),
   arrayUnion: jest.fn((...args: unknown[]) => args),
-  Timestamp: { now: jest.fn(() => "mock-timestamp") },
+  Timestamp: {
+    now: jest.fn(() => "mock-timestamp"),
+    fromDate: jest.fn((d: Date) => ({ toMillis: () => d.getTime(), toDate: () => d })),
+    fromMillis: jest.fn((ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) })),
+  },
 }));
 
 jest.mock("firebase/storage", () => ({

@@ -3,6 +3,7 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDoc,
   query,
   where,
   orderBy,
@@ -40,6 +41,14 @@ import {
   MAX_IMAGES_PER_REQUEST,
   assertWithinImageLimit,
 } from "@/utils/images";
+import {
+  computeSlaTargets,
+  pauseSla,
+  priorityToSlaPriority,
+  resumeSla,
+} from "@/utils/sla";
+import { tokenizeTitle } from "@/utils/search";
+import type { RequestETA, OnHoldReason } from "@/types";
 
 const REQUESTS_COLLECTION = "requests";
 const USERS_COLLECTION = "users";
@@ -160,8 +169,12 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
   assertWithinImageLimit(allUris.length, 0, MAX_IMAGES_PER_REQUEST);
 
   const suggestion: PrioritySuggestion = suggestPriority(input.title, input.description, input.category);
+  const slaPriority = priorityToSlaPriority(suggestion.priority);
+  const sla = computeSlaTargets(slaPriority, new Date());
+  const titleTokens = tokenizeTitle(input.title);
   const docRef = await addDoc(collection(db, REQUESTS_COLLECTION), {
     title: input.title,
+    titleTokens,
     description: input.description,
     category: input.category,
     priority: suggestion.priority,
@@ -171,6 +184,7 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     tenantName: input.tenantName,
     ...(input.tenantUnit ? { tenantUnit: input.tenantUnit } : {}),
     imageUrls: [],
+    sla,
     statusHistory: [],
     createdAt: serverTimestamp(),
     clientTimestamp: Date.now(),
@@ -217,7 +231,12 @@ export async function appendRequestImages(
   return urls;
 }
 
-/** Update request status with role-based transition validation. */
+/**
+ * Update request status with role-based transition validation. Also handles
+ * the SLA pause / resume side-effect: entering on_hold pauses the SLA;
+ * leaving on_hold resumes it. Optional `onHoldReason` is recorded when
+ * entering on_hold (manager UI should require it).
+ */
 export async function updateRequestStatus(
   requestId: string,
   currentStatus: RequestStatus,
@@ -225,11 +244,17 @@ export async function updateRequestStatus(
   userId: string,
   userName: string,
   role: UserRole,
+  options: { onHoldReason?: OnHoldReason; note?: string } = {},
 ): Promise<void> {
   if (!canTransitionWithRole(currentStatus, newStatus, role)) {
     throw new Error(`Invalid transition: ${currentStatus} → ${newStatus} for role ${role}`);
   }
-  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+
+  const ref = doc(db, REQUESTS_COLLECTION, requestId);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? (snap.data() as MaintenanceRequest) : undefined;
+
+  const update: Record<string, unknown> = {
     status: newStatus,
     statusHistory: arrayUnion({
       from: currentStatus,
@@ -237,8 +262,207 @@ export async function updateRequestStatus(
       changedBy: userId,
       changedByName: userName,
       changedAt: Timestamp.now(),
+      ...(options.note ? { note: options.note } : {}),
+      ...(options.onHoldReason && newStatus === "on_hold" ? { reason: options.onHoldReason } : {}),
+    }),
+  };
+
+  // Track on_hold reason at the request level so the UI can show it without
+  // walking statusHistory.
+  if (newStatus === "on_hold" && options.onHoldReason) {
+    update.onHoldReason = options.onHoldReason;
+  } else if (currentStatus === "on_hold" && newStatus !== "on_hold") {
+    update.onHoldReason = null;
+  }
+
+  // SLA pause/resume side-effect.
+  if (data?.sla) {
+    if (newStatus === "on_hold" && currentStatus !== "on_hold") {
+      update.sla = pauseSla(data.sla);
+    } else if (currentStatus === "on_hold" && newStatus !== "on_hold") {
+      update.sla = resumeSla(data.sla);
+    }
+  }
+
+  // Resolved/verified bookkeeping.
+  if (newStatus === "completed" && !data?.resolvedAt) {
+    update.resolvedAt = Timestamp.now();
+  }
+  if (newStatus === "verified") {
+    update.verifiedByTenantAt = Timestamp.now();
+  }
+
+  await updateDoc(ref, update);
+}
+
+/**
+ * Schedule a request for a specific date/time — moves status to "scheduled"
+ * and records the appointment. Both manager and assigned maintainer may call.
+ */
+export async function scheduleRequest(
+  requestId: string,
+  scheduledFor: Date,
+  userId: string,
+  userName: string,
+  role: UserRole,
+): Promise<void> {
+  if (scheduledFor.getTime() < Date.now() - 60_000) {
+    throw new Error("Scheduled time must be in the future");
+  }
+  const ref = doc(db, REQUESTS_COLLECTION, requestId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Request not found");
+  const data = snap.data() as MaintenanceRequest;
+  if (!canTransitionWithRole(data.status, "scheduled", role)) {
+    throw new Error(`Cannot schedule from ${data.status} for role ${role}`);
+  }
+  await updateDoc(ref, {
+    status: "scheduled",
+    scheduledFor: Timestamp.fromDate(scheduledFor),
+    statusHistory: arrayUnion({
+      from: data.status,
+      to: "scheduled",
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: Timestamp.now(),
+      note: `Scheduled for ${scheduledFor.toISOString()}`,
     }),
   });
+
+  // Notify the tenant when a manager/maintainer schedules.
+  await createNotification(data.tenantId, {
+    kind: "request_scheduled",
+    title: "Appointment scheduled",
+    body: `${userName} scheduled "${data.title}" for ${scheduledFor.toLocaleString()}.`,
+    requestId,
+    actorId: userId,
+    actorName: userName,
+  }).catch(() => {});
+}
+
+/**
+ * Tenant confirms the work was completed satisfactorily — moves
+ * status to "verified" (terminal, post-completed). Idempotent.
+ */
+export async function verifyByTenant(
+  requestId: string,
+  tenantId: string,
+  tenantName: string,
+): Promise<void> {
+  const ref = doc(db, REQUESTS_COLLECTION, requestId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Request not found");
+  const data = snap.data() as MaintenanceRequest;
+  if (data.tenantId !== tenantId) {
+    throw new Error("Only the tenant of this request can verify it");
+  }
+  if (data.status === "verified") return;
+  if (data.status !== "completed") {
+    throw new Error("Can only verify a completed request");
+  }
+  await updateDoc(ref, {
+    status: "verified",
+    verifiedByTenantAt: Timestamp.now(),
+    statusHistory: arrayUnion({
+      from: "completed",
+      to: "verified",
+      changedBy: tenantId,
+      changedByName: tenantName,
+      changedAt: Timestamp.now(),
+    }),
+  });
+
+  // Notify the assigned maintainer that the work was confirmed.
+  if (data.assignedTo) {
+    await createNotification(data.assignedTo, {
+      kind: "request_verified",
+      title: "Work verified by tenant",
+      body: `${tenantName} confirmed your repair on "${data.title}".`,
+      requestId,
+      actorId: tenantId,
+      actorName: tenantName,
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Maintainer (or manager on behalf) sets / updates the ETA for the
+ * scheduled job. Either a single point estimate or a window.
+ *
+ * Pushes a notification to the tenant if revisionCount > 0 (i.e. ETA changed).
+ */
+export async function setEstimatedArrival(
+  requestId: string,
+  setById: string,
+  setByName: string,
+  payload: { at?: Date; window?: { start: Date; end: Date } },
+): Promise<RequestETA> {
+  if (!payload.at && !payload.window) {
+    throw new Error("Provide either a single ETA or a window");
+  }
+  const ref = doc(db, REQUESTS_COLLECTION, requestId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Request not found");
+  const data = snap.data() as MaintenanceRequest;
+
+  const previous = data.eta;
+  const next: RequestETA = {
+    setBy: setById,
+    setByName,
+    setAt: Timestamp.now(),
+    revisionCount: (previous?.revisionCount ?? 0) + (previous ? 1 : 0),
+    ...(payload.at ? { estimatedArrivalAt: Timestamp.fromDate(payload.at) } : {}),
+    ...(payload.window
+      ? {
+          estimatedArrivalWindow: {
+            start: Timestamp.fromDate(payload.window.start),
+            end: Timestamp.fromDate(payload.window.end),
+          },
+        }
+      : {}),
+  };
+  await updateDoc(ref, { eta: next });
+
+  // Only push on revision (not initial set — that's covered by status_changed).
+  if (next.revisionCount > 0) {
+    const human = payload.window
+      ? `${payload.window.start.toLocaleString()} – ${payload.window.end.toLocaleTimeString()}`
+      : payload.at?.toLocaleString();
+    await createNotification(data.tenantId, {
+      kind: "request_eta_changed",
+      title: "ETA updated",
+      body: `${setByName} updated the arrival time to ${human}.`,
+      requestId,
+      actorId: setById,
+      actorName: setByName,
+    }).catch(() => {});
+  }
+
+  return next;
+}
+
+/** Maintainer marks "I've arrived" — fixes the actual arrival timestamp. */
+export async function markMaintainerArrived(
+  requestId: string,
+  maintainerId: string,
+): Promise<void> {
+  const ref = doc(db, REQUESTS_COLLECTION, requestId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Request not found");
+  const data = snap.data() as MaintenanceRequest;
+  if (data.assignedTo !== maintainerId) {
+    throw new Error("Only the assigned maintainer can mark arrival");
+  }
+  const eta: RequestETA = {
+    ...(data.eta ?? {
+      setBy: maintainerId,
+      setByName: data.assignedToName ?? "",
+      setAt: Timestamp.now(),
+      revisionCount: 0,
+    }),
+    actualArrivalAt: Timestamp.now(),
+  };
+  await updateDoc(ref, { eta });
 }
 
 /** Update editable fields on a request (title, description, category, priority). */
@@ -246,7 +470,12 @@ export async function updateRequest(
   requestId: string,
   fields: Partial<Pick<MaintenanceRequest, "title" | "description" | "category" | "priority">>,
 ): Promise<void> {
-  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), fields);
+  // Re-derive titleTokens when title changes.
+  const next: Record<string, unknown> = { ...fields };
+  if (typeof fields.title === "string") {
+    next.titleTokens = tokenizeTitle(fields.title);
+  }
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), next);
 }
 
 /** Manager sets a custom priority — overrides any auto-suggestion. */

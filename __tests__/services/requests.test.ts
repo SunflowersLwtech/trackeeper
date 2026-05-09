@@ -9,6 +9,12 @@ jest.mock("firebase/firestore", () => ({
   addDoc: jest.fn().mockResolvedValue({ id: "req-123" }),
   updateDoc: jest.fn().mockResolvedValue(undefined),
   doc: jest.fn(() => "mock-doc-ref"),
+  getDoc: jest.fn().mockResolvedValue({
+    exists: () => true,
+    data: () => ({ status: "submitted", tenantId: "u-tenant", tenantName: "Tenant" }),
+  }),
+  getDocs: jest.fn().mockResolvedValue({ docs: [] }),
+  startAfter: jest.fn(),
   query: jest.fn(() => "mock-query"),
   where: jest.fn(),
   orderBy: jest.fn(),
@@ -16,7 +22,11 @@ jest.mock("firebase/firestore", () => ({
   onSnapshot: jest.fn(() => jest.fn()),
   serverTimestamp: jest.fn(() => "mock-ts"),
   arrayUnion: jest.fn((...args) => args),
-  Timestamp: { now: jest.fn(() => "mock-timestamp") },
+  Timestamp: {
+    now: jest.fn(() => "mock-timestamp"),
+    fromDate: jest.fn((d: Date) => ({ toMillis: () => d.getTime(), toDate: () => d })),
+    fromMillis: jest.fn((ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) })),
+  },
   Unsubscribe: jest.fn(),
 }));
 
@@ -78,7 +88,9 @@ describe("createRequest", () => {
         status: "submitted",
         tenantId: "user-1",
         tenantName: "John",
-        imageUrl: null,
+        imageUrls: [],
+        titleTokens: expect.arrayContaining(["wall", "scuff"]),
+        sla: expect.objectContaining({ priority: "low", totalPausedMs: 0 }),
         statusHistory: [],
         createdAt: "mock-ts",
       }),
@@ -140,6 +152,7 @@ describe("createRequest", () => {
     expect(id).toBe("req-123");
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("Image upload failed"),
+      expect.anything(),
     );
     consoleSpy.mockRestore();
   });
@@ -184,12 +197,24 @@ describe("cancelRequest", () => {
 });
 
 describe("updateRequest", () => {
-  it("updates partial fields", async () => {
-    await updateRequest("req-1", { title: "Updated", priority: "high" });
-    expect(mockUpdateDoc).toHaveBeenCalledWith("mock-doc-ref", {
-      title: "Updated",
-      priority: "high",
-    });
+  it("updates partial fields and re-derives titleTokens when title changes", async () => {
+    await updateRequest("req-1", { title: "Updated heading", priority: "high" });
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      "mock-doc-ref",
+      expect.objectContaining({
+        title: "Updated heading",
+        priority: "high",
+        titleTokens: expect.arrayContaining(["updated", "heading"]),
+      }),
+    );
+  });
+
+  it("does not re-derive titleTokens if title is unchanged", async () => {
+    await updateRequest("req-1", { priority: "high" });
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      "mock-doc-ref",
+      expect.not.objectContaining({ titleTokens: expect.anything() }),
+    );
   });
 });
 

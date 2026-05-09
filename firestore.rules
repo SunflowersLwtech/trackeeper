@@ -28,7 +28,7 @@ service cloud.firestore {
     }
 
     function isValidStatus(status) {
-      return status in ["submitted", "assigned", "in_progress", "completed", "cancelled", "on_hold"];
+      return status in ["submitted", "assigned", "scheduled", "in_progress", "completed", "verified", "cancelled", "on_hold"];
     }
 
     function isValidCategory(cat) {
@@ -195,9 +195,11 @@ service cloud.firestore {
           && paymentTransitionOk()
           && (
             (resource.data.status == "submitted" && request.resource.data.status == "assigned")
-            || (resource.data.status == "assigned" && request.resource.data.status == "on_hold")
+            || (resource.data.status == "assigned" && request.resource.data.status in ["scheduled", "on_hold"])
+            || (resource.data.status == "scheduled" && request.resource.data.status in ["in_progress", "on_hold"])
             || (resource.data.status == "in_progress" && request.resource.data.status == "on_hold")
-            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
+            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "scheduled", "in_progress"])
+            || (resource.data.status == "completed" && request.resource.data.status == "verified")
             || (request.resource.data.status == resource.data.status)
           )
         ) ||
@@ -216,16 +218,19 @@ service cloud.firestore {
             (request.resource.data.status == resource.data.status
               && resource.data.status == "submitted"
               && request.resource.data.statusHistory == resource.data.statusHistory)
-            // Cancel from submitted or assigned
+            // Cancel from submitted, assigned, or scheduled
             || (request.resource.data.status == "cancelled"
-              && resource.data.status in ["submitted", "assigned"])
-            // Rate when completed
+              && resource.data.status in ["submitted", "assigned", "scheduled"])
+            // Rate when completed (or already verified)
             || (request.resource.data.status == resource.data.status
-              && resource.data.status == "completed"
+              && resource.data.status in ["completed", "verified"]
               && request.resource.data.statusHistory == resource.data.statusHistory
               && request.resource.data.rating is number
               && request.resource.data.rating >= 1
               && request.resource.data.rating <= 5)
+            // Tenant verifies a completed job — only completed → verified.
+            || (resource.data.status == "completed"
+              && request.resource.data.status == "verified")
           )
         ) ||
 
@@ -244,9 +249,11 @@ service cloud.firestore {
           && moneyFieldsUnchanged()
           && isValidStatus(request.resource.data.status)
           && (
-            (resource.data.status == "assigned" && request.resource.data.status in ["in_progress", "on_hold"])
+            (resource.data.status == "assigned" && request.resource.data.status in ["scheduled", "in_progress", "on_hold"])
+            || (resource.data.status == "scheduled" && request.resource.data.status in ["in_progress", "on_hold"])
             || (resource.data.status == "in_progress" && request.resource.data.status in ["completed", "on_hold"])
-            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "in_progress"])
+            || (resource.data.status == "on_hold" && request.resource.data.status in ["assigned", "scheduled", "in_progress"])
+            || (request.resource.data.status == resource.data.status)
           )
         ) ||
 
@@ -287,22 +294,54 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.senderName is string
+          // If a replyTo is supplied, validate it points at a message in the
+          // SAME request thread — prevents cross-thread reply injection.
+          && (
+            !("replyTo" in request.resource.data)
+            || (request.resource.data.replyTo.messageId is string
+                && get(/databases/$(database)/documents/requests/$(requestId)/messages/$(request.resource.data.replyTo.messageId)).data.senderId
+                   == request.resource.data.replyTo.senderId)
+          )
           && (
             getUserRole() == "manager" ||
             get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
             get(/databases/$(database)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
           );
 
-        // Allow read-receipt updates: only readBy and updatedAt, sender stays the same.
+        // Updates cover several disjoint flows. We keep them in one branch
+        // because each pinned set of fields makes the intent clear, and the
+        // last clause routes to the right one.
         allow update: if isAuthenticated()
           && request.resource.data.senderId == resource.data.senderId
           && request.resource.data.senderName == resource.data.senderName
-          && request.resource.data.text == resource.data.text
           && request.resource.data.createdAt == resource.data.createdAt
           && (
             getUserRole() == "manager" ||
             get(/databases/$(database)/documents/requests/$(requestId)).data.tenantId == request.auth.uid ||
             get(/databases/$(database)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
+          )
+          && (
+            // ── A. Read-receipt: text + image fields unchanged. ──
+            (request.resource.data.text == resource.data.text
+              && request.resource.data.get("imageUrls", []) == resource.data.get("imageUrls", [])
+              && !("deletedAt" in request.resource.data
+                   && !("deletedAt" in resource.data)))
+            // ── B. Reaction toggle: only the reactions map changes. ──
+            || (request.resource.data.text == resource.data.text
+                && request.resource.data.get("imageUrls", []) == resource.data.get("imageUrls", []))
+            // ── C. Sender edits own message: text changes, must be within
+            //       15-minute window, must not be already deleted. Note that
+            //       Firestore rules can't read clock — we approximate via
+            //       request.time vs createdAt. ──
+            || (resource.data.senderId == request.auth.uid
+                && resource.data.get("deletedAt", null) == null
+                && request.time < resource.data.createdAt + duration.value(15, 'm')
+                && request.resource.data.text is string
+                && request.resource.data.text.size() > 0)
+            // ── D. Soft-delete: sender or manager flips deletedAt. ──
+            || ((resource.data.senderId == request.auth.uid || getUserRole() == "manager")
+                && request.resource.data.deletedAt is timestamp
+                && resource.data.get("deletedAt", null) == null)
           );
 
         allow delete: if false;

@@ -16,8 +16,8 @@ describe("status utils", () => {
       expect(canTransition("submitted", "assigned")).toBe(true);
     });
 
-    it("allows assigned → in_progress", () => {
-      expect(canTransition("assigned", "in_progress")).toBe(true);
+    it("allows assigned → scheduled (linear next step)", () => {
+      expect(canTransition("assigned", "scheduled")).toBe(true);
     });
 
     it("allows in_progress → completed", () => {
@@ -90,20 +90,28 @@ describe("status utils", () => {
       expect(getNextStatuses("submitted")).toEqual(["assigned"]);
     });
 
-    it("returns [in_progress, on_hold] for assigned", () => {
-      expect(getNextStatuses("assigned")).toEqual(["in_progress", "on_hold"]);
+    it("returns [scheduled, on_hold] for assigned", () => {
+      expect(getNextStatuses("assigned")).toEqual(["scheduled", "on_hold"]);
+    });
+
+    it("returns [in_progress, on_hold] for scheduled", () => {
+      expect(getNextStatuses("scheduled")).toEqual(["in_progress", "on_hold"]);
     });
 
     it("returns [completed, on_hold] for in_progress", () => {
       expect(getNextStatuses("in_progress")).toEqual(["completed", "on_hold"]);
     });
 
-    it("returns [assigned, in_progress] for on_hold", () => {
-      expect(getNextStatuses("on_hold")).toEqual(["assigned", "in_progress"]);
+    it("returns [assigned, scheduled, in_progress] for on_hold", () => {
+      expect(getNextStatuses("on_hold")).toEqual(["assigned", "scheduled", "in_progress"]);
     });
 
-    it("returns [] for completed (terminal state)", () => {
-      expect(getNextStatuses("completed")).toEqual([]);
+    it("returns [verified] for completed (one more step after tenant verifies)", () => {
+      expect(getNextStatuses("completed")).toEqual(["verified"]);
+    });
+
+    it("returns [] for verified (terminal)", () => {
+      expect(getNextStatuses("verified")).toEqual([]);
     });
 
     it("returns [] for cancelled (terminal state)", () => {
@@ -134,28 +142,36 @@ describe("status utils", () => {
   });
 
   describe("getStatusColor", () => {
-    it("returns gray for submitted", () => {
-      expect(getStatusColor("submitted")).toBe("#9ca3af");
+    it("returns ink for submitted", () => {
+      expect(getStatusColor("submitted")).toBe("#0A0A0A");
     });
 
-    it("returns blue for assigned", () => {
-      expect(getStatusColor("assigned")).toBe("#3b82f6");
+    it("returns cobalt for assigned", () => {
+      expect(getStatusColor("assigned")).toBe("#1E3AFF");
     });
 
-    it("returns amber for in_progress", () => {
-      expect(getStatusColor("in_progress")).toBe("#f59e0b");
+    it("returns sky for scheduled", () => {
+      expect(getStatusColor("scheduled")).toBe("#3B82F6");
     });
 
-    it("returns green for completed", () => {
-      expect(getStatusColor("completed")).toBe("#22c55e");
+    it("returns mustard for in_progress", () => {
+      expect(getStatusColor("in_progress")).toBe("#F4B400");
     });
 
-    it("returns red for cancelled", () => {
-      expect(getStatusColor("cancelled")).toBe("#ef4444");
+    it("returns lime for completed", () => {
+      expect(getStatusColor("completed")).toBe("#5BD27D");
     });
 
-    it("returns violet for on_hold", () => {
-      expect(getStatusColor("on_hold")).toBe("#8b5cf6");
+    it("returns emerald for verified", () => {
+      expect(getStatusColor("verified")).toBe("#10B981");
+    });
+
+    it("returns tomato for cancelled", () => {
+      expect(getStatusColor("cancelled")).toBe("#FF4D2E");
+    });
+
+    it("returns plum for on_hold", () => {
+      expect(getStatusColor("on_hold")).toBe("#7C3AED");
     });
   });
 
@@ -172,25 +188,38 @@ describe("status utils", () => {
   });
 
   describe("getStatusIndex", () => {
-    it("returns correct index for each status", () => {
+    it("returns correct index for each status (6-step linear order)", () => {
       expect(getStatusIndex("submitted")).toBe(0);
       expect(getStatusIndex("assigned")).toBe(1);
-      expect(getStatusIndex("in_progress")).toBe(2);
-      expect(getStatusIndex("completed")).toBe(3);
+      expect(getStatusIndex("scheduled")).toBe(2);
+      expect(getStatusIndex("in_progress")).toBe(3);
+      expect(getStatusIndex("completed")).toBe(4);
+      expect(getStatusIndex("verified")).toBe(5);
     });
 
     it("returns -1 for cancelled (not in linear order)", () => {
       expect(getStatusIndex("cancelled")).toBe(-1);
     });
+
+    it("returns -1 for on_hold (off the linear path)", () => {
+      expect(getStatusIndex("on_hold")).toBe(-1);
+    });
   });
 
   describe("STATUS_ORDER", () => {
-    it("has exactly 4 statuses", () => {
-      expect(STATUS_ORDER).toHaveLength(4);
+    it("has exactly 6 statuses (submitted → verified)", () => {
+      expect(STATUS_ORDER).toHaveLength(6);
     });
 
     it("is in correct order", () => {
-      expect(STATUS_ORDER).toEqual(["submitted", "assigned", "in_progress", "completed"]);
+      expect(STATUS_ORDER).toEqual([
+        "submitted",
+        "assigned",
+        "scheduled",
+        "in_progress",
+        "completed",
+        "verified",
+      ]);
     });
   });
 
@@ -269,11 +298,11 @@ describe("status utils", () => {
     it("manager from submitted: [assigned]", () => {
       expect(getNextStatusesForRole("submitted", "manager")).toEqual(["assigned"]);
     });
-    it("manager from on_hold: [assigned, in_progress]", () => {
-      expect(getNextStatusesForRole("on_hold", "manager")).toEqual(["assigned", "in_progress"]);
+    it("manager from on_hold: [assigned, scheduled, in_progress]", () => {
+      expect(getNextStatusesForRole("on_hold", "manager")).toEqual(["assigned", "scheduled", "in_progress"]);
     });
-    it("maintainer from assigned: [in_progress, on_hold]", () => {
-      expect(getNextStatusesForRole("assigned", "maintainer")).toEqual(["in_progress", "on_hold"]);
+    it("maintainer from assigned: [scheduled, in_progress, on_hold]", () => {
+      expect(getNextStatusesForRole("assigned", "maintainer")).toEqual(["scheduled", "in_progress", "on_hold"]);
     });
     it("maintainer from in_progress: [completed, on_hold]", () => {
       expect(getNextStatusesForRole("in_progress", "maintainer")).toEqual(["completed", "on_hold"]);

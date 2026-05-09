@@ -1,46 +1,75 @@
 import { RequestStatus, UserRole } from "@/types";
 
-const STATUS_ORDER: RequestStatus[] = ["submitted", "assigned", "in_progress", "completed"];
+const STATUS_ORDER: RequestStatus[] = [
+  "submitted",
+  "assigned",
+  "scheduled",
+  "in_progress",
+  "completed",
+  "verified",
+];
 
-const CANCELLABLE_STATUSES: RequestStatus[] = ["submitted", "assigned"];
+const CANCELLABLE_STATUSES: RequestStatus[] = ["submitted", "assigned", "scheduled"];
 
 const STATUS_COLORS: Record<RequestStatus, string> = {
-  submitted: "#9ca3af", // gray-400
-  assigned: "#3b82f6", // blue-500
-  in_progress: "#f59e0b", // amber-500
-  completed: "#22c55e", // green-500
-  cancelled: "#ef4444", // red-500
-  on_hold: "#8b5cf6", // violet-500
+  submitted: "#0A0A0A", // ink — neutral
+  assigned: "#1E3AFF", // cobalt
+  scheduled: "#3B82F6", // sky — appointment booked
+  in_progress: "#F4B400", // mustard
+  completed: "#5BD27D", // lime
+  verified: "#10B981", // emerald — tenant confirmed
+  cancelled: "#FF4D2E", // tomato
+  on_hold: "#7C3AED", // plum
 };
 
 const STATUS_LABELS: Record<RequestStatus, string> = {
   submitted: "Submitted",
   assigned: "Assigned",
+  scheduled: "Scheduled",
   in_progress: "In Progress",
   completed: "Completed",
+  verified: "Verified",
   cancelled: "Cancelled",
   on_hold: "On Hold",
 };
 
-/** Role-based transition rules */
+/**
+ * Role-based transition rules — keep in lock-step with firestore.rules.
+ * New transitions:
+ *   • manager / maintainer: assigned → scheduled (when ETA agreed)
+ *   • maintainer: scheduled → in_progress (when on-site)
+ *   • tenant: completed → verified (final confirmation)
+ *   • manager: completed → verified (manager-confirmed close)
+ */
 const ROLE_TRANSITIONS: Record<UserRole, [RequestStatus, RequestStatus][]> = {
   tenant: [
     ["submitted", "cancelled"],
     ["assigned", "cancelled"],
+    ["scheduled", "cancelled"],
+    ["completed", "verified"],
   ],
   manager: [
     ["submitted", "assigned"],
+    ["assigned", "scheduled"],
     ["assigned", "on_hold"],
+    ["scheduled", "in_progress"],
+    ["scheduled", "on_hold"],
     ["in_progress", "on_hold"],
     ["on_hold", "assigned"],
+    ["on_hold", "scheduled"],
     ["on_hold", "in_progress"],
+    ["completed", "verified"],
   ],
   maintainer: [
+    ["assigned", "scheduled"],
     ["assigned", "in_progress"],
+    ["scheduled", "in_progress"],
     ["in_progress", "completed"],
     ["assigned", "on_hold"],
+    ["scheduled", "on_hold"],
     ["in_progress", "on_hold"],
     ["on_hold", "assigned"],
+    ["on_hold", "scheduled"],
     ["on_hold", "in_progress"],
   ],
 };
@@ -64,10 +93,10 @@ export function canTransition(current: RequestStatus, next: RequestStatus): bool
     return CANCELLABLE_STATUSES.includes(current);
   }
   if (current === "on_hold") {
-    return next === "assigned" || next === "in_progress";
+    return next === "assigned" || next === "scheduled" || next === "in_progress";
   }
   if (next === "on_hold") {
-    return current === "assigned" || current === "in_progress";
+    return current === "assigned" || current === "scheduled" || current === "in_progress";
   }
   const currentIndex = STATUS_ORDER.indexOf(current);
   const nextIndex = STATUS_ORDER.indexOf(next);
@@ -79,13 +108,13 @@ export function canCancel(status: RequestStatus): boolean {
 }
 
 export function getNextStatuses(current: RequestStatus): RequestStatus[] {
-  if (current === "on_hold") return ["assigned", "in_progress"];
+  if (current === "on_hold") return ["assigned", "scheduled", "in_progress"];
   const results: RequestStatus[] = [];
   const currentIndex = STATUS_ORDER.indexOf(current);
   if (currentIndex >= 0 && currentIndex < STATUS_ORDER.length - 1) {
     results.push(STATUS_ORDER[currentIndex + 1]);
   }
-  if (current === "assigned" || current === "in_progress") {
+  if (current === "assigned" || current === "scheduled" || current === "in_progress") {
     results.push("on_hold");
   }
   return results;
