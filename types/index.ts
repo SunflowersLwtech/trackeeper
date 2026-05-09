@@ -85,6 +85,9 @@ export interface MaintenanceRequest {
   category: RequestCategory;
   priority: RequestPriority;
   prioritySuggestion?: PrioritySuggestion;
+  /** Canonical multi-image array. Use `getRequestImages(req)` to read. */
+  imageUrls?: string[];
+  /** @deprecated legacy single-image field — kept for back-compat with old docs. */
   imageUrl?: string;
   status: RequestStatus;
   tenantId: string;
@@ -111,6 +114,9 @@ export interface Message {
   senderId: string;
   senderName: string;
   text: string;
+  /** Canonical multi-image array. Use `getMessageImages(msg)` to read. */
+  imageUrls?: string[];
+  /** @deprecated legacy single-image field — kept for back-compat with old docs. */
   imageUrl?: string;
   readBy?: string[];
   createdAt: Timestamp;

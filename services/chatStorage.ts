@@ -4,6 +4,12 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { storage } from "@/config/firebase";
+import { compressImages } from "@/services/imageCompression";
+import {
+  UPLOAD_CONCURRENCY,
+  MAX_IMAGES_PER_MESSAGE,
+  assertWithinImageLimit,
+} from "@/utils/images";
 
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"] as const;
 
@@ -50,4 +56,38 @@ export async function uploadChatImage(uri: string, requestId: string): Promise<s
       },
     );
   });
+}
+
+/**
+ * Batch-upload multiple chat images. Compresses with the same long-edge /
+ * quality target as request photos, uploads with capped concurrency, and
+ * preserves input order. Enforces MAX_IMAGES_PER_MESSAGE.
+ */
+export async function uploadChatImages(
+  uris: string[],
+  requestId: string,
+  onProgress?: (overall: number) => void,
+): Promise<string[]> {
+  if (uris.length === 0) return [];
+  assertWithinImageLimit(uris.length, 0, MAX_IMAGES_PER_MESSAGE);
+
+  // Compress in parallel before uploading.
+  const compressed = await compressImages(uris, UPLOAD_CONCURRENCY);
+
+  const urls: string[] = new Array(uris.length);
+  let done = 0;
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= compressed.length) return;
+      urls[i] = await uploadChatImage(compressed[i].uri, requestId);
+      done += 1;
+      onProgress?.(done / compressed.length);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(UPLOAD_CONCURRENCY, compressed.length) }, worker),
+  );
+  return urls;
 }

@@ -26,23 +26,32 @@ function getMessageDoc(requestId: string, messageId: string) {
   return doc(db, "requests", requestId, "messages", messageId);
 }
 
-/** Send a chat message. Initialises readBy with the sender so they don't notify themselves. */
+/**
+ * Send a chat message. Accepts either a single image (`imageUrl`) for legacy
+ * call sites or an array of images (`imageUrls`). The new canonical field is
+ * `imageUrls` — `imageUrl` is kept until existing screens are migrated.
+ */
 export async function sendMessage(
   requestId: string,
   senderId: string,
   senderName: string,
   text: string,
-  imageUrl?: string,
+  imageUrlOrUrls?: string | string[],
 ): Promise<string> {
   const trimmed = text.trim();
-  if (trimmed.length === 0 && !imageUrl) {
+  // Normalise to imageUrls array.
+  const imageUrls = Array.isArray(imageUrlOrUrls)
+    ? imageUrlOrUrls.filter((u) => typeof u === "string" && u.length > 0)
+    : (imageUrlOrUrls ? [imageUrlOrUrls] : []);
+
+  if (trimmed.length === 0 && imageUrls.length === 0) {
     throw new Error("Message cannot be empty");
   }
   if (trimmed.length > MAX_MESSAGE_LENGTH) {
     throw new Error(`Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`);
   }
   // Firestore rule requires text.size() > 0 — fall back to a single-char placeholder
-  // when the user is sending an image with no caption.
+  // when the user is sending image(s) with no caption.
   const storedText = trimmed.length > 0 ? trimmed : "📷";
   const docRef = await addDoc(getMessagesRef(requestId), {
     senderId,
@@ -50,7 +59,7 @@ export async function sendMessage(
     text: storedText,
     readBy: [senderId],
     createdAt: serverTimestamp(),
-    ...(imageUrl ? { imageUrl } : {}),
+    ...(imageUrls.length > 0 ? { imageUrls } : {}),
   });
   return docRef.id;
 }

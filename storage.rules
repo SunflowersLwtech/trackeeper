@@ -2,9 +2,18 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Request images: scoped to requests/{requestId}/{fileName}
-    match /requests/{requestId}/{fileName} {
-      // Read: only participants (request owner, assigned maintainer, or manager)
+    // Request media: any path under requests/{requestId}/...
+    // Includes:
+    //   • requests/{id}/{ts}.jpg              tenant-uploaded request photos
+    //   • requests/{id}/chat/{ts}.jpg         chat attachments
+    //   • requests/{id}/proof/{ts}.jpg        maintainer completion proof (future)
+    //
+    // The {path=**} multi-segment wildcard is required — Firebase Storage
+    // matchers are exact-segment unless you use **, so the previous
+    // single-segment {fileName} matcher silently denied chat sub-paths.
+    match /requests/{requestId}/{path=**} {
+      // Read: only request participants (tenant owner, assigned maintainer,
+      // or anyone with role=manager) — checked via Firestore lookup.
       allow read: if request.auth != null
         && (
           firestore.get(/databases/(default)/documents/requests/$(requestId)).data.tenantId == request.auth.uid
@@ -12,18 +21,19 @@ service firebase.storage {
           || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "manager"
         );
 
-      // Write: only the request's tenant owner or a manager
-      // Must be image, max 10MB
+      // Write: tenant owner, the assigned maintainer (for completion-proof
+      // photos), or a manager. Must be an image and under 10 MB.
       allow write: if request.auth != null
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*')
         && (
           firestore.get(/databases/(default)/documents/requests/$(requestId)).data.tenantId == request.auth.uid
+          || firestore.get(/databases/(default)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
           || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "manager"
         );
     }
 
-    // Deny all other paths
+    // Deny everything else.
     match /{allPaths=**} {
       allow read, write: if false;
     }

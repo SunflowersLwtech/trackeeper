@@ -34,6 +34,12 @@ import {
 import { canCancel, canTransitionWithRole, getStatusLabel } from "@/utils/status";
 import { suggestPriority } from "@/utils/priority";
 import { createNotification } from "@/services/notifications";
+import { compressImages } from "@/services/imageCompression";
+import {
+  UPLOAD_CONCURRENCY,
+  MAX_IMAGES_PER_REQUEST,
+  assertWithinImageLimit,
+} from "@/utils/images";
 
 const REQUESTS_COLLECTION = "requests";
 const USERS_COLLECTION = "users";
@@ -45,15 +51,28 @@ export interface CreateRequestInput {
   tenantId: string;
   tenantName: string;
   tenantUnit?: string;
+  /** Up to MAX_IMAGES_PER_REQUEST local URIs to attach. Compressed before upload. */
+  imageUris?: string[];
+  /** @deprecated single-image — use imageUris. Kept for legacy callers. */
   imageUri?: string;
+  /** Optional progress callback during multi-upload (0–1). */
+  onUploadProgress?: (overall: number) => void;
 }
 
-/** Upload a request image to Firebase Storage. Returns the download URL. */
-async function uploadRequestImage(uri: string, requestId: string): Promise<string> {
+/** Upload one already-compressed image. Resolves with the storage download URL. */
+async function uploadOneRequestImage(
+  uri: string,
+  requestId: string,
+  index: number,
+): Promise<string> {
   const response = await fetch(uri);
   const blob = await response.blob();
-  const imageRef = ref(storage, `requests/${requestId}/${Date.now()}.jpg`);
-  const uploadTask = uploadBytesResumable(imageRef, blob);
+  // Index keeps URLs sortable on read; ts disambiguates same-index re-uploads.
+  const filename = `${Date.now()}-${index}.jpg`;
+  const imageRef = ref(storage, `requests/${requestId}/${filename}`);
+  const uploadTask = uploadBytesResumable(imageRef, blob, {
+    contentType: "image/jpeg",
+  });
 
   return new Promise((resolve, reject) => {
     uploadTask.on(
@@ -61,11 +80,45 @@ async function uploadRequestImage(uri: string, requestId: string): Promise<strin
       null,
       (error) => reject(error),
       async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        resolve(url);
+        try {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(url);
+        } catch (err) {
+          reject(err);
+        }
       },
     );
   });
+}
+
+/**
+ * Upload many request images with capped concurrency. Compresses each via
+ * services/imageCompression first, then uploads. Returns URLs in input order.
+ */
+export async function uploadRequestImages(
+  uris: string[],
+  requestId: string,
+  onProgress?: (overall: number) => void,
+): Promise<string[]> {
+  if (uris.length === 0) return [];
+  const compressed = await compressImages(uris, UPLOAD_CONCURRENCY);
+
+  const urls: string[] = new Array(uris.length);
+  let done = 0;
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= compressed.length) return;
+      urls[i] = await uploadOneRequestImage(compressed[i].uri, requestId, i);
+      done += 1;
+      onProgress?.(done / compressed.length);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(UPLOAD_CONCURRENCY, compressed.length) }, worker),
+  );
+  return urls;
 }
 
 /** Best-effort: notify every manager. Failures are silenced (notification UX only). */
@@ -100,6 +153,12 @@ async function notifyAllManagers(args: {
 
 /** Create a new maintenance request. Auto-suggests a priority — manager has final say. */
 export async function createRequest(input: CreateRequestInput): Promise<string> {
+  // Normalise images: prefer imageUris[], fall back to legacy single imageUri.
+  const allUris = (input.imageUris && input.imageUris.length > 0)
+    ? input.imageUris
+    : (input.imageUri ? [input.imageUri] : []);
+  assertWithinImageLimit(allUris.length, 0, MAX_IMAGES_PER_REQUEST);
+
   const suggestion: PrioritySuggestion = suggestPriority(input.title, input.description, input.category);
   const docRef = await addDoc(collection(db, REQUESTS_COLLECTION), {
     title: input.title,
@@ -111,18 +170,18 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     tenantId: input.tenantId,
     tenantName: input.tenantName,
     ...(input.tenantUnit ? { tenantUnit: input.tenantUnit } : {}),
-    imageUrl: null,
+    imageUrls: [],
     statusHistory: [],
     createdAt: serverTimestamp(),
     clientTimestamp: Date.now(),
   });
 
-  if (input.imageUri) {
+  if (allUris.length > 0) {
     try {
-      const imageUrl = await uploadRequestImage(input.imageUri, docRef.id);
-      await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrl });
-    } catch {
-      console.warn(`[createRequest] Image upload failed for ${docRef.id}, continuing without image`);
+      const imageUrls = await uploadRequestImages(allUris, docRef.id, input.onUploadProgress);
+      await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrls });
+    } catch (err) {
+      console.warn(`[createRequest] Image upload failed for ${docRef.id}:`, err);
     }
   }
 
@@ -137,6 +196,25 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
   });
 
   return docRef.id;
+}
+
+/**
+ * Append additional images to an existing request. Used for editing the
+ * request after creation or for the maintainer/manager to upload completion
+ * proofs. Enforces the same per-request cap.
+ */
+export async function appendRequestImages(
+  requestId: string,
+  newUris: string[],
+  existingCount: number,
+  onProgress?: (overall: number) => void,
+): Promise<string[]> {
+  assertWithinImageLimit(newUris.length, existingCount, MAX_IMAGES_PER_REQUEST);
+  const urls = await uploadRequestImages(newUris, requestId, onProgress);
+  await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
+    imageUrls: arrayUnion(...urls),
+  });
+  return urls;
 }
 
 /** Update request status with role-based transition validation. */
