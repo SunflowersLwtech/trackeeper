@@ -6,35 +6,37 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  Platform,
+  ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "@/config/firebase";
 import { signIn, getUserProfile, TenantAccountInactiveError, signOut } from "@/services/auth";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 import { showInfo, showError } from "@/utils/toast";
-import { withOpacity } from "@/utils/color";
 
-/**
- * Tenant waiting screen — shown after a successful registration but before
- * the manager has approved the account. Polls profile status on demand.
- */
 export default function PendingApprovalScreen() {
   const c = useColors();
   const [checking, setChecking] = useState(false);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const tickerAnim = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const compactHeight = height - insets.top - insets.bottom < 700;
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.18, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
+    Animated.loop(
+      Animated.timing(tickerAnim, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
+  }, [tickerAnim]);
 
   const checkAgain = async () => {
     setChecking(true);
@@ -68,57 +70,124 @@ export default function PendingApprovalScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.background, paddingTop: Platform.OS === "ios" ? 70 : 50 }}>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-        <Animated.View
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: c.background,
+      }}
+    >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 28,
+          paddingTop: Math.max(24, insets.top + 18),
+          paddingBottom: Math.max(28, insets.bottom + 24),
+        }}
+      >
+        {/* Brutalist tag */}
+        <View
           style={{
-            transform: [{ scale: pulseAnim }],
-            width: 120,
-            height: 120,
-            borderRadius: 60,
-            backgroundColor: withOpacity(c.warning, 0.16),
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 28,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            backgroundColor: palette.mustard500,
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            marginBottom: compactHeight ? 18 : 28,
+            ...SHADOW_SM,
           }}
         >
-          <View
+          <Text
             style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: withOpacity(c.warning, 0.28),
-              alignItems: "center",
-              justifyContent: "center",
+              fontFamily: FONT.display,
+              fontSize: 11,
+              fontWeight: "900",
+              color: palette.ink,
+              letterSpacing: 1.6,
+              textTransform: "uppercase",
             }}
           >
-            <Ionicons name="hourglass-outline" size={40} color={c.warning} />
-          </View>
-        </Animated.View>
+            ◼ Status · Pending
+          </Text>
+        </View>
 
-        <Text style={{ fontSize: 22, fontWeight: "800", color: c.text, textAlign: "center" }}>
-          Awaiting manager approval
+        {/* Hourglass card */}
+        <View
+          style={{
+            width: compactHeight ? 112 : 140,
+            height: compactHeight ? 112 : 140,
+            backgroundColor: palette.mustard500,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: compactHeight ? 22 : 32,
+            ...SHADOW_MD,
+          }}
+        >
+          <Ionicons name="hourglass" size={compactHeight ? 52 : 64} color={palette.ink} />
+        </View>
+
+        <Text
+          style={{
+            fontFamily: FONT.display,
+            fontSize: 28,
+            fontWeight: "900",
+            color: c.text,
+            textAlign: "center",
+            letterSpacing: 0,
+            lineHeight: 32,
+            textTransform: "uppercase",
+          }}
+        >
+          Awaiting{"\n"}manager approval
         </Text>
-        <Text style={{ fontSize: 14, color: c.textTertiary, textAlign: "center", marginTop: 12, lineHeight: 22 }}>
-          Your registration was submitted successfully. The property manager will review your details and approve your account shortly. You will be able to sign in once approved.
+        <Text
+          style={{
+            fontFamily: FONT.body,
+            fontSize: 14,
+            color: c.textBody,
+            textAlign: "center",
+            marginTop: 14,
+            lineHeight: 20,
+            maxWidth: 400,
+          }}
+        >
+          Your registration was submitted. The property manager will review and approve your account shortly. You'll be able to sign in once approved.
         </Text>
 
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 24, padding: 14, borderRadius: 14, backgroundColor: c.surface }}>
-          <Ionicons name="information-circle-outline" size={18} color={c.primary} />
-          <Text style={{ marginLeft: 10, fontSize: 12, color: c.textSecondary, flex: 1 }}>
-            You can return to this screen anytime by signing in. Once approved, your account will unlock automatically.
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            marginTop: compactHeight ? 20 : 28,
+            padding: 14,
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            backgroundColor: c.surface,
+            ...SHADOW_SM,
+            maxWidth: 420,
+          }}
+        >
+          <Ionicons name="information-circle" size={20} color={palette.cobalt500} />
+          <Text style={{ marginLeft: 10, fontFamily: FONT.body, fontSize: 12, color: c.textBody, flex: 1, lineHeight: 16 }}>
+            Return here anytime by signing in. Once approved, your account unlocks automatically.
           </Text>
         </View>
 
         <TouchableOpacity
           style={{
-            marginTop: 28,
-            paddingVertical: 14,
-            paddingHorizontal: 22,
-            borderRadius: 12,
-            backgroundColor: checking ? c.primaryLight : c.primary,
+            marginTop: compactHeight ? 22 : 32,
+            paddingVertical: 16,
+            paddingHorizontal: 28,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            backgroundColor: checking ? palette.cobalt300 : palette.cobalt500,
             flexDirection: "row",
             alignItems: "center",
+            ...SHADOW_MD,
           }}
           onPress={checkAgain}
           disabled={checking}
@@ -127,25 +196,48 @@ export default function PendingApprovalScreen() {
           testID="pending-check-button"
         >
           {checking ? (
-            <ActivityIndicator color={c.background} />
+            <ActivityIndicator color={palette.paper} />
           ) : (
             <>
-              <Ionicons name="refresh" size={16} color={c.background} />
-              <Text style={{ color: c.background, fontSize: 14, fontWeight: "700", marginLeft: 8 }}>Check status</Text>
+              <Ionicons name="refresh" size={18} color={palette.paper} />
+              <Text
+                style={{
+                  color: palette.paper,
+                  fontFamily: FONT.display,
+                  fontSize: 14,
+                  fontWeight: "900",
+                  marginLeft: 10,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                }}
+              >
+                Check status
+              </Text>
             </>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={{ marginTop: 16, padding: 8 }}
+          style={{ marginTop: 18, padding: 10 }}
           onPress={goToLogin}
           accessibilityRole="button"
           accessibilityLabel="Back to sign in"
           testID="pending-login-button"
         >
-          <Text style={{ color: c.textTertiary, fontSize: 13 }}>Back to sign in</Text>
+          <Text
+            style={{
+              fontFamily: FONT.display,
+              color: c.textBody,
+              fontSize: 12,
+              fontWeight: "900",
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+            }}
+          >
+            ← Back to sign in
+          </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }

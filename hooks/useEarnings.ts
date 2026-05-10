@@ -6,9 +6,11 @@ export interface EarningsSummary {
   totalEarnings: number;
   paidEarnings: number;
   pendingEarnings: number;
+  refundedEarnings: number;
   jobCount: number;
   paidCount: number;
   pendingCount: number;
+  refundedCount: number;
 }
 
 export function useEarnings(maintainerId: string | undefined) {
@@ -42,12 +44,21 @@ export function useEarnings(maintainerId: string | undefined) {
     let totalEarnings = 0;
     let paidEarnings = 0;
     let pendingEarnings = 0;
+    let refundedEarnings = 0;
     let paidCount = 0;
     let pendingCount = 0;
+    let refundedCount = 0;
     for (const r of requests) {
       const amount = r.cost?.total ?? 0;
+      const status = r.payment?.status;
+      if (status === "refunded") {
+        // Refunded jobs are excluded from total earnings — funds were reversed.
+        refundedEarnings += amount;
+        refundedCount += 1;
+        continue;
+      }
       totalEarnings += amount;
-      if (r.payment?.status === "paid") {
+      if (status === "paid") {
         paidEarnings += amount;
         paidCount += 1;
       } else {
@@ -59,9 +70,11 @@ export function useEarnings(maintainerId: string | undefined) {
       totalEarnings,
       paidEarnings,
       pendingEarnings,
-      jobCount: requests.length,
+      refundedEarnings,
+      jobCount: requests.length - refundedCount,
       paidCount,
       pendingCount,
+      refundedCount,
     };
   }, [requests]);
 

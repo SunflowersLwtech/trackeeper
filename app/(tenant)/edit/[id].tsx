@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,22 +9,19 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useRequest } from "@/hooks/useRequest";
 import { updateRequest } from "@/services/requests";
-import { RequestCategory, RequestPriority } from "@/types";
+import { RequestCategory } from "@/types";
 import { validateRequestForm } from "@/utils/validation";
 import { showSuccess, showError } from "@/utils/toast";
-import { getPriorityColor } from "@/utils/priority";
+import { getPriorityColor, getPriorityLabel, suggestPriority } from "@/utils/priority";
 import { useColors } from "@/hooks/useColors";
-import { withOpacity } from "@/utils/color";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 
 const CATEGORIES: RequestCategory[] = ["Plumbing", "Electrical", "General"];
-const PRIORITIES: { value: RequestPriority; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-];
 
 export default function EditRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,7 +30,6 @@ export default function EditRequestScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<RequestCategory | "">("");
-  const [priority, setPriority] = useState<RequestPriority>("medium");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -41,12 +37,21 @@ export default function EditRequestScreen() {
       setTitle(request.title);
       setDescription(request.description);
       setCategory(request.category);
-      setPriority(request.priority ?? "medium");
     }
   }, [request]);
 
+  const preview = useMemo(() => {
+    if (!request || !category || !title.trim() || !description.trim()) return null;
+    return suggestPriority(
+      title,
+      description,
+      category as RequestCategory,
+      request.prioritySuggestion?.factors ?? request.priorityFactors ?? [],
+    );
+  }, [request, title, description, category]);
+
   const handleSave = async () => {
-    const errors = validateRequestForm({ title, description, category, priority });
+    const errors = validateRequestForm({ title, description, category });
     if (errors.length > 0) {
       showError("Validation Error", errors[0].message);
       return;
@@ -59,7 +64,6 @@ export default function EditRequestScreen() {
         title: title.trim(),
         description: description.trim(),
         category: category as RequestCategory,
-        priority,
       });
       showSuccess("Request updated");
       router.back();
@@ -73,130 +77,193 @@ export default function EditRequestScreen() {
 
   if (requestLoading) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
-        <ActivityIndicator size="large" color={c.primary} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.background }}>
+        <ActivityIndicator size="large" color={palette.cobalt500} />
       </View>
     );
   }
 
   if (!request || request.status !== "submitted") {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
-        <Text style={{ color: c.textTertiary }}>This request cannot be edited</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.background, padding: 24 }}>
+        <Text style={{ fontFamily: FONT.display, fontSize: 14, fontWeight: "900", color: c.textBody, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "center" }}>
+          This request cannot be edited
+        </Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <Stack.Screen options={{ headerShown: true, title: "Edit Request" }} />
-      <ScrollView className="flex-1" style={{ backgroundColor: c.background }} contentContainerStyle={{ padding: 24 }}>
-        {/* Title */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Title</Text>
-          <TextInput
-            className="border rounded-xl px-4 py-3 text-base"
-            style={{ borderColor: c.border, color: c.text }}
-            value={title}
-            onChangeText={setTitle}
-            testID="edit-request-title-input"
-          />
-        </View>
+      <ScrollView style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={{ padding: 24, paddingBottom: 60 }}>
+        <BrutalLabel>Title</BrutalLabel>
+        <TextInput
+          style={{
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            paddingHorizontal: 14,
+            paddingVertical: 14,
+            fontFamily: FONT.body,
+            fontSize: 15,
+            color: c.text,
+            backgroundColor: c.surface,
+            marginBottom: 18,
+            ...SHADOW_SM,
+          }}
+          value={title}
+          onChangeText={setTitle}
+          testID="edit-request-title-input"
+        />
 
-        {/* Category */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Category</Text>
-          <View className="flex-row">
-            {CATEGORIES.map((cat) => (
+        <BrutalLabel>Category</BrutalLabel>
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 18 }}>
+          {CATEGORIES.map((cat) => {
+            const selected = category === cat;
+            return (
               <TouchableOpacity
                 key={cat}
-                className="mr-2 px-4 py-2 rounded-xl border"
                 style={{
-                  borderColor: category === cat ? c.primary : c.border,
-                  backgroundColor: category === cat ? c.primaryBg : c.background,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderWidth: BORDER.base,
+                  borderColor: palette.ink,
+                  backgroundColor: selected ? palette.cobalt500 : c.surface,
+                  ...(selected ? SHADOW_SM : {}),
                 }}
                 onPress={() => setCategory(cat)}
                 testID={`edit-request-category-${cat.toLowerCase()}`}
               >
                 <Text
-                  className="text-sm"
-                  style={{ color: category === cat ? c.primary : c.textSecondary }}
+                  style={{
+                    fontFamily: FONT.display,
+                    fontSize: 12,
+                    fontWeight: "900",
+                    color: selected ? palette.paper : palette.ink,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                  }}
                 >
                   {cat}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
+            );
+          })}
         </View>
 
-        {/* Priority */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>Priority</Text>
-          <View className="flex-row">
-            {PRIORITIES.map((p) => {
-              const color = getPriorityColor(p.value);
-              const selected = priority === p.value;
-              return (
-                <TouchableOpacity
-                  key={p.value}
-                  className="mr-2 flex-row items-center px-4 py-2 rounded-xl border"
-                  style={{
-                    borderColor: selected ? color : c.border,
-                    backgroundColor: selected ? withOpacity(color, 0.08) : c.background,
-                  }}
-                  onPress={() => setPriority(p.value)}
-                  testID={`edit-request-priority-${p.value}`}
-                >
-                  <View
-                    className="w-2.5 h-2.5 rounded-full mr-2"
-                    style={{ backgroundColor: color }}
-                  />
-                  <Text className="text-sm" style={{ color: selected ? color : c.textSecondary }}>
-                    {p.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Description */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium mb-1" style={{ color: c.textSecondary }}>Description</Text>
-          <TextInput
-            className="border rounded-xl px-4 py-3 text-base"
+        {preview && (
+          <View
             style={{
-              borderColor: c.border,
-              color: c.text,
-              height: 120,
-              textAlignVertical: "top",
+              flexDirection: "row",
+              alignItems: "center",
+              padding: 12,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              backgroundColor: getPriorityColor(preview.priority),
+              marginBottom: 18,
+              ...SHADOW_SM,
             }}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={5}
-            testID="edit-request-description-input"
-          />
-        </View>
+          >
+            <Ionicons name="git-network-outline" size={18} color={preview.priority === "high" ? palette.paper : palette.ink} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text
+                style={{
+                  fontFamily: FONT.display,
+                  fontSize: 10,
+                  fontWeight: "900",
+                  color: preview.priority === "high" ? palette.paper : palette.ink,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                }}
+              >
+                System triage
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONT.body,
+                  fontSize: 12,
+                  color: preview.priority === "high" ? palette.paper : palette.ink,
+                  marginTop: 2,
+                }}
+              >
+                {getPriorityLabel(preview.priority)} - {preview.reason}
+              </Text>
+            </View>
+          </View>
+        )}
 
-        {/* Save */}
+        <BrutalLabel>Description</BrutalLabel>
+        <TextInput
+          style={{
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            fontFamily: FONT.body,
+            fontSize: 14,
+            color: c.text,
+            backgroundColor: c.surface,
+            height: 130,
+            textAlignVertical: "top",
+            marginBottom: 26,
+            ...SHADOW_SM,
+          }}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={6}
+          testID="edit-request-description-input"
+        />
+
         <TouchableOpacity
-          className="rounded-xl py-4 items-center"
-          style={{ backgroundColor: loading ? c.primaryLight : c.primary }}
+          style={{
+            backgroundColor: loading ? palette.cobalt300 : palette.cobalt500,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            paddingVertical: 18,
+            alignItems: "center",
+            ...SHADOW_MD,
+          }}
           onPress={handleSave}
           disabled={loading}
           testID="edit-request-save-button"
         >
           {loading ? (
-            <ActivityIndicator color={c.background} />
+            <ActivityIndicator color={palette.paper} />
           ) : (
-            <Text className="text-base font-semibold" style={{ color: c.background }}>Save Changes</Text>
+            <Text
+              style={{
+                fontFamily: FONT.display,
+                fontSize: 14,
+                fontWeight: "900",
+                color: palette.paper,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+              }}
+            >
+              Save Changes
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function BrutalLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Text
+      style={{
+        fontFamily: FONT.display,
+        fontSize: 11,
+        fontWeight: "900",
+        color: palette.ink,
+        marginBottom: 8,
+        letterSpacing: 0.8,
+        textTransform: "uppercase",
+      }}
+    >
+      ◼ {children}
+    </Text>
   );
 }

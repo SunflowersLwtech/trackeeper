@@ -17,8 +17,8 @@ export default function TenantLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: palette.ink,
-        tabBarInactiveTintColor: palette.ink400,
+        tabBarActiveTintColor: c.text,
+        tabBarInactiveTintColor: c.textTertiary,
         tabBarStyle: {
           borderTopWidth: BORDER.heavy,
           borderTopColor: palette.ink,
@@ -39,7 +39,7 @@ export default function TenantLayout() {
           borderBottomWidth: BORDER.base,
           borderBottomColor: palette.ink,
         },
-        headerTintColor: palette.ink,
+        headerTintColor: c.text,
         headerTitleStyle: {
           fontFamily: FONT.display,
           fontSize: 20,

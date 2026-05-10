@@ -30,6 +30,7 @@ import {
   RequestCategory,
   RequestPriority,
   PrioritySuggestion,
+  TriageFactor,
   UserRole,
 } from "@/types";
 import { canCancel, canTransitionWithRole, getStatusLabel } from "@/utils/status";
@@ -48,6 +49,8 @@ import {
   resumeSla,
 } from "@/utils/sla";
 import { tokenizeTitle } from "@/utils/search";
+import { withoutUndefined } from "@/utils/firestorePayload";
+import { friendlyErrorMessage, getErrorCode } from "@/utils/errorMessages";
 import type { RequestETA, OnHoldReason } from "@/types";
 
 const REQUESTS_COLLECTION = "requests";
@@ -62,6 +65,8 @@ export interface CreateRequestInput {
   tenantUnit?: string;
   /** Up to MAX_IMAGES_PER_REQUEST local URIs to attach. Compressed before upload. */
   imageUris?: string[];
+  /** Structured answers from the tenant risk checklist used for system triage. */
+  triageFactors?: TriageFactor[];
   /** @deprecated single-image — use imageUris. Kept for legacy callers. */
   imageUri?: string;
   /** Optional progress callback during multi-upload (0–1). */
@@ -76,18 +81,28 @@ async function uploadOneRequestImage(
 ): Promise<string> {
   const response = await fetch(uri);
   const blob = await response.blob();
+  const contentType = blob.type?.startsWith("image/") ? blob.type : "image/jpeg";
   // Index keeps URLs sortable on read; ts disambiguates same-index re-uploads.
   const filename = `${Date.now()}-${index}.jpg`;
   const imageRef = ref(storage, `requests/${requestId}/${filename}`);
   const uploadTask = uploadBytesResumable(imageRef, blob, {
-    contentType: "image/jpeg",
+    contentType,
   });
 
   return new Promise((resolve, reject) => {
     uploadTask.on(
       "state_changed",
       null,
-      (error) => reject(error),
+      (error) => {
+        console.warn("[uploadOneRequestImage] failed", {
+          requestId,
+          index,
+          size: blob.size,
+          contentType,
+          code: error.code,
+        });
+        reject(error);
+      },
       async () => {
         try {
           const url = await getDownloadURL(uploadTask.snapshot.ref);
@@ -160,7 +175,7 @@ async function notifyAllManagers(args: {
   }
 }
 
-/** Create a new maintenance request. Auto-suggests a priority — manager has final say. */
+/** Create a new maintenance request. System triage suggests priority; manager has final say. */
 export async function createRequest(input: CreateRequestInput): Promise<string> {
   // Normalise images: prefer imageUris[], fall back to legacy single imageUri.
   const allUris = (input.imageUris && input.imageUris.length > 0)
@@ -168,7 +183,12 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     : (input.imageUri ? [input.imageUri] : []);
   assertWithinImageLimit(allUris.length, 0, MAX_IMAGES_PER_REQUEST);
 
-  const suggestion: PrioritySuggestion = suggestPriority(input.title, input.description, input.category);
+  const suggestion: PrioritySuggestion = suggestPriority(
+    input.title,
+    input.description,
+    input.category,
+    input.triageFactors ?? [],
+  );
   const slaPriority = priorityToSlaPriority(suggestion.priority);
   const sla = computeSlaTargets(slaPriority, new Date());
   const titleTokens = tokenizeTitle(input.title);
@@ -179,6 +199,8 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     category: input.category,
     priority: suggestion.priority,
     prioritySuggestion: suggestion,
+    priorityFactors: suggestion.factors ?? [],
+    priorityConfidence: suggestion.confidence ?? "low",
     status: "submitted" as RequestStatus,
     tenantId: input.tenantId,
     tenantName: input.tenantName,
@@ -193,9 +215,16 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
   if (allUris.length > 0) {
     try {
       const imageUrls = await uploadRequestImages(allUris, docRef.id, input.onUploadProgress);
-      await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), { imageUrls });
+      await updateDoc(doc(db, REQUESTS_COLLECTION, docRef.id), {
+        imageUrls,
+        ...(imageUrls[0] ? { imageUrl: imageUrls[0] } : {}),
+      });
     } catch (err) {
       console.warn(`[createRequest] Image upload failed for ${docRef.id}:`, err);
+      if (getErrorCode(err) === "storage/unauthorized") {
+        throw new Error("Photo upload is blocked by Storage permissions. Deploy the latest Storage rules, then retry.");
+      }
+      throw new Error(friendlyErrorMessage(err, "Photo upload failed. Check the image and try again."));
     }
   }
 
@@ -203,7 +232,7 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
   void notifyAllManagers({
     kind: "request_created",
     title: "New maintenance request",
-    body: `${input.tenantName} reported: ${input.title} (${suggestion.priority.toUpperCase()} priority — ${suggestion.reason})`,
+    body: `${input.tenantName} reported: ${input.title} (${suggestion.priority.toUpperCase()} priority - ${suggestion.reason})`,
     requestId: docRef.id,
     actorId: input.tenantId,
     actorName: input.tenantName,
@@ -227,6 +256,7 @@ export async function appendRequestImages(
   const urls = await uploadRequestImages(newUris, requestId, onProgress);
   await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), {
     imageUrls: arrayUnion(...urls),
+    ...(existingCount === 0 && urls[0] ? { imageUrl: urls[0] } : {}),
   });
   return urls;
 }
@@ -313,30 +343,32 @@ export async function scheduleRequest(
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Request not found");
   const data = snap.data() as MaintenanceRequest;
-  if (!canTransitionWithRole(data.status, "scheduled", role)) {
+  const isReschedule = data.status === "scheduled";
+  if (!isReschedule && !canTransitionWithRole(data.status, "scheduled", role)) {
     throw new Error(`Cannot schedule from ${data.status} for role ${role}`);
   }
-  await updateDoc(ref, {
+  const actorName = userName || "Someone";
+  await updateDoc(ref, withoutUndefined({
     status: "scheduled",
     scheduledFor: Timestamp.fromDate(scheduledFor),
-    statusHistory: arrayUnion({
+    statusHistory: arrayUnion(withoutUndefined({
       from: data.status,
       to: "scheduled",
-      changedBy: userId,
-      changedByName: userName,
+      changedBy: userId || undefined,
+      changedByName: userName || undefined,
       changedAt: Timestamp.now(),
-      note: `Scheduled for ${scheduledFor.toISOString()}`,
-    }),
-  });
+      note: `${isReschedule ? "Rescheduled" : "Scheduled"} for ${scheduledFor.toISOString()}`,
+    })),
+  }));
 
   // Notify the tenant when a manager/maintainer schedules.
   await createNotification(data.tenantId, {
     kind: "request_scheduled",
     title: "Appointment scheduled",
-    body: `${userName} scheduled "${data.title}" for ${scheduledFor.toLocaleString()}.`,
+    body: `${actorName} ${isReschedule ? "rescheduled" : "scheduled"} "${data.title}" for ${scheduledFor.toLocaleString()}.`,
     requestId,
-    actorId: userId,
-    actorName: userName,
+    actorId: userId || undefined,
+    actorName: userName || undefined,
   }).catch(() => {});
 }
 
@@ -475,10 +507,30 @@ export async function updateRequest(
   if (typeof fields.title === "string") {
     next.titleTokens = tokenizeTitle(fields.title);
   }
+  if (
+    fields.priority === undefined &&
+    (fields.title !== undefined || fields.description !== undefined || fields.category !== undefined)
+  ) {
+    const ref = doc(db, REQUESTS_COLLECTION, requestId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const current = snap.data() as MaintenanceRequest;
+      const suggestion = suggestPriority(
+        fields.title ?? current.title,
+        fields.description ?? current.description,
+        fields.category ?? current.category,
+        current.prioritySuggestion?.factors ?? current.priorityFactors ?? [],
+      );
+      next.priority = suggestion.priority;
+      next.prioritySuggestion = suggestion;
+      next.priorityFactors = suggestion.factors ?? [];
+      next.priorityConfidence = suggestion.confidence ?? "low";
+    }
+  }
   await updateDoc(doc(db, REQUESTS_COLLECTION, requestId), next);
 }
 
-/** Manager sets a custom priority — overrides any auto-suggestion. */
+/** Manager sets a custom priority and overrides system triage. */
 export async function setPriority(
   requestId: string,
   priority: RequestPriority,
@@ -493,6 +545,8 @@ export async function setPriority(
       reason: reason || `Set by ${setByName}`,
       source: "manager",
     } satisfies PrioritySuggestion,
+    priorityFactors: [],
+    priorityConfidence: null,
   });
 }
 

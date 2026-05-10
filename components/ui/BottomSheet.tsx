@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { BORDER } from "@/constants/Brutalism";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -22,8 +24,8 @@ interface BottomSheetProps {
 }
 
 /**
- * Lightweight bottom sheet using Modal + Animated.
- * Slides up with a backdrop overlay. Tap backdrop to dismiss.
+ * Brutalist bottom sheet — hard ink top border, no rounding,
+ * chunky drag handle that feels like a tab pull.
  */
 export function BottomSheet({
   visible,
@@ -40,12 +42,12 @@ export function BottomSheet({
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 250,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.timing(backdropAnim, {
           toValue: 1,
-          duration: 250,
+          duration: 220,
           useNativeDriver: true,
         }),
       ]).start();
@@ -53,12 +55,12 @@ export function BottomSheet({
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: SCREEN_HEIGHT,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
         Animated.timing(backdropAnim, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
       ]).start();
@@ -76,7 +78,12 @@ export function BottomSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <TouchableWithoutFeedback onPress={onClose}>
-          <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
+          <Animated.View
+            style={[
+              styles.backdrop,
+              { opacity: backdropAnim, backgroundColor: c.overlay },
+            ]}
+          />
         </TouchableWithoutFeedback>
 
         <Animated.View
@@ -84,14 +91,14 @@ export function BottomSheet({
             styles.sheet,
             {
               height: sheetHeight,
-              backgroundColor: c.background,
+              backgroundColor: c.surface,
               transform: [{ translateY: slideAnim }],
             },
           ]}
         >
-          {/* Drag handle */}
-          <View style={styles.handleContainer}>
-            <View style={[styles.handle, { backgroundColor: c.border }]} />
+          {/* Brutalist drag handle */}
+          <View style={styles.handleWrap}>
+            <View style={styles.handle} />
           </View>
           <View style={{ flex: 1 }}>{children}</View>
         </Animated.View>
@@ -107,25 +114,21 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
   },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
+    borderTopWidth: BORDER.heavy,
+    borderLeftWidth: BORDER.base,
+    borderRightWidth: BORDER.base,
+    borderColor: palette.ink,
   },
-  handleContainer: {
+  handleWrap: {
     alignItems: "center",
     paddingTop: 10,
-    paddingBottom: 6,
+    paddingBottom: 8,
   },
   handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+    width: 56,
+    height: 6,
+    backgroundColor: palette.ink,
   },
 });

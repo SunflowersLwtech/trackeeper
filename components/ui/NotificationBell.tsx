@@ -11,80 +11,118 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useNotificationCenter } from "@/hooks/useNotificationCenter";
+import { useAuth } from "@/hooks/useAuth";
 import { useColors } from "@/hooks/useColors";
-import { withOpacity } from "@/utils/color";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM, SHADOW_MD } from "@/constants/Brutalism";
 import { AppNotification, NotificationKind } from "@/types";
 import { formatTimeAgo } from "@/utils/time";
 
 const KIND_ICON: Record<NotificationKind, keyof typeof Ionicons.glyphMap> = {
   request_created: "add-circle-outline",
   request_assigned: "person-add-outline",
+  request_scheduled: "calendar-outline",
   request_status_changed: "swap-horizontal-outline",
   request_completed: "checkmark-circle-outline",
+  request_verified: "shield-checkmark-outline",
+  request_eta_changed: "time-outline",
+  request_sla_breach: "alert-circle-outline",
   chat_message: "chatbubble-outline",
+  chat_mention: "at-outline",
   payment_received: "cash-outline",
   tenant_approved: "shield-checkmark-outline",
   tenant_rejected: "close-circle-outline",
 };
 
-const KIND_TINT: Record<NotificationKind, "primary" | "success" | "warning" | "violet" | "error"> = {
-  request_created: "primary",
-  request_assigned: "primary",
-  request_status_changed: "violet",
-  request_completed: "success",
-  chat_message: "primary",
-  payment_received: "success",
-  tenant_approved: "success",
-  tenant_rejected: "error",
+const KIND_TINT: Record<NotificationKind, string> = {
+  request_created: palette.cobalt500,
+  request_assigned: palette.cobalt500,
+  request_scheduled: palette.sky500,
+  request_status_changed: palette.plum500,
+  request_completed: palette.lime500,
+  request_verified: palette.lime500,
+  request_eta_changed: palette.mustard500,
+  request_sla_breach: palette.tomato500,
+  chat_message: palette.sky500,
+  chat_mention: palette.cobalt500,
+  payment_received: palette.lime500,
+  tenant_approved: palette.lime500,
+  tenant_rejected: palette.tomato500,
 };
+
+const DARK_TINTS: ReadonlySet<string> = new Set<string>([
+  palette.cobalt500,
+  palette.plum500,
+  palette.tomato500,
+  palette.sky500,
+]);
 
 export function NotificationBell() {
   const c = useColors();
   const { notifications, unreadCount, markRead, markAllRead } = useNotificationCenter();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   const handleOpen = (n: AppNotification) => {
     void markRead(n.id);
-    if (n.requestId) {
-      setOpen(false);
-      // Heuristic: just push the request ID onto the current role group.
-      router.push(`./${n.requestId}` as never);
-    }
+    // Prefer the canonical deepLink.ticketId; fall back to legacy requestId.
+    const ticketId = n.deepLink?.ticketId ?? n.requestId;
+    if (!ticketId) return;
+    setOpen(false);
+    const role = user?.role;
+    const target =
+      role === "manager"
+        ? `/(manager)/${ticketId}`
+        : role === "maintainer"
+          ? `/(maintainer)/${ticketId}`
+          : `/(tenant)/${ticketId}`;
+    router.push(target as never);
   };
 
   return (
     <>
       <TouchableOpacity
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 42,
+          height: 42,
+          borderRadius: RADIUS.xs,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: c.surface,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
+          ...SHADOW_SM,
         }}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`Open notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         testID="notification-bell"
       >
-        <Ionicons name="notifications-outline" size={22} color={c.text} />
+        <Ionicons name="notifications" size={20} color={palette.ink} />
         {unreadCount > 0 && (
           <View
             style={{
               position: "absolute",
-              top: 4,
-              right: 4,
-              minWidth: 16,
-              height: 16,
+              top: -7,
+              right: -7,
+              minWidth: 20,
+              height: 20,
               paddingHorizontal: 4,
-              borderRadius: 8,
-              backgroundColor: c.error,
+              backgroundColor: palette.tomato500,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: c.background, fontSize: 9, fontWeight: "800" }}>
+            <Text
+              style={{
+                color: palette.paper,
+                fontSize: 10,
+                fontFamily: FONT.display,
+                fontWeight: "900",
+              }}
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Text>
           </View>
@@ -101,15 +139,13 @@ export function NotificationBell() {
             style={{
               marginTop: 80,
               marginHorizontal: 16,
-              backgroundColor: c.background,
-              borderRadius: 16,
+              backgroundColor: c.surface,
+              borderWidth: BORDER.heavy,
+              borderColor: palette.ink,
+              borderRadius: RADIUS.sm,
               maxHeight: "75%",
               overflow: "hidden",
-              shadowColor: c.text,
-              shadowOpacity: 0.18,
-              shadowRadius: 20,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 10,
+              ...SHADOW_MD,
             }}
           >
             {/* Header */}
@@ -119,26 +155,69 @@ export function NotificationBell() {
                 alignItems: "center",
                 paddingHorizontal: 16,
                 paddingVertical: 14,
-                borderBottomWidth: 1,
-                borderBottomColor: c.borderLight,
+                borderBottomWidth: BORDER.base,
+                borderBottomColor: palette.ink,
+                backgroundColor: palette.cobalt500,
               }}
             >
-              <Text style={{ flex: 1, fontSize: 16, fontWeight: "800", color: c.text }}>
-                Notifications
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: FONT.display,
+                  fontSize: 14,
+                  fontWeight: "900",
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                  color: palette.paper,
+                }}
+              >
+                Notifications {unreadCount > 0 && `· ${unreadCount}`}
               </Text>
               {notifications.length > 0 && (
-                <TouchableOpacity onPress={markAllRead} accessibilityRole="button" accessibilityLabel="Mark all as read">
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: c.primary }}>Mark all read</Text>
+                <TouchableOpacity
+                  onPress={markAllRead}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark all as read"
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    backgroundColor: palette.paper,
+                    borderWidth: BORDER.base,
+                    borderColor: palette.ink,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONT.display,
+                      fontSize: 10,
+                      fontWeight: "900",
+                      letterSpacing: 0.5,
+                      textTransform: "uppercase",
+                      color: palette.ink,
+                    }}
+                  >
+                    Mark all read
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <ScrollView style={{ maxHeight: 480 }}>
+            <ScrollView style={{ maxHeight: 480, backgroundColor: c.surface }}>
               {notifications.length === 0 ? (
                 <View style={{ alignItems: "center", paddingVertical: 60 }}>
-                  <Ionicons name="notifications-off-outline" size={48} color={c.borderLight} />
-                  <Text style={{ marginTop: 10, fontSize: 13, color: c.textTertiary }}>
-                    No notifications yet
+                  <Ionicons name="notifications-off" size={40} color={c.textMuted} />
+                  <Text
+                    style={{
+                      marginTop: 12,
+                      fontFamily: FONT.display,
+                      fontSize: 11,
+                      fontWeight: "900",
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                      color: c.textMuted,
+                    }}
+                  >
+                    All caught up
                   </Text>
                 </View>
               ) : (
@@ -166,15 +245,10 @@ interface NotificationItemProps {
 }
 
 function NotificationItem({ notification: n, onPress, colors: c }: NotificationItemProps) {
-  const tint = KIND_TINT[n.kind] ?? "primary";
-  const tintColor =
-    tint === "primary" ? c.primary :
-    tint === "success" ? c.success :
-    tint === "warning" ? c.warning :
-    tint === "violet" ? c.violet :
-    c.error;
+  const tintColor = KIND_TINT[n.kind] ?? palette.cobalt500;
+  const useLight = DARK_TINTS.has(tintColor);
 
-  const fade = React.useRef(new Animated.Value(n.read ? 0.55 : 1)).current;
+  const fade = React.useRef(new Animated.Value(n.read ? 0.6 : 1)).current;
   React.useEffect(() => {
     Animated.timing(fade, { toValue: n.read ? 0.65 : 1, duration: 200, useNativeDriver: true }).start();
   }, [n.read, fade]);
@@ -185,9 +259,9 @@ function NotificationItem({ notification: n, onPress, colors: c }: NotificationI
         style={{
           flexDirection: "row",
           padding: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: c.borderLight,
-          backgroundColor: n.read ? c.background : withOpacity(tintColor, 0.04),
+          borderBottomWidth: BORDER.base,
+          borderBottomColor: palette.ink,
+          backgroundColor: n.read ? c.surface : c.surfaceAlt,
         }}
         onPress={onPress}
         accessibilityRole="button"
@@ -195,30 +269,66 @@ function NotificationItem({ notification: n, onPress, colors: c }: NotificationI
       >
         <View
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: withOpacity(tintColor, 0.14),
+            width: 40,
+            height: 40,
+            backgroundColor: tintColor,
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
             alignItems: "center",
             justifyContent: "center",
+            ...SHADOW_SM,
           }}
         >
-          <Ionicons name={KIND_ICON[n.kind] ?? "notifications-outline"} size={20} color={tintColor} />
+          <Ionicons
+            name={KIND_ICON[n.kind] ?? "notifications-outline"}
+            size={20}
+            color={useLight ? palette.paper : palette.ink}
+          />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: c.text }} numberOfLines={1}>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: FONT.display,
+                fontSize: 13,
+                fontWeight: "900",
+                color: c.text,
+                letterSpacing: 0.3,
+              }}
+              numberOfLines={1}
+            >
               {n.title}
             </Text>
             {!n.read && (
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary, marginLeft: 6 }} />
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  backgroundColor: palette.tomato500,
+                  borderWidth: 1.5,
+                  borderColor: palette.ink,
+                  marginLeft: 6,
+                }}
+              />
             )}
           </View>
-          <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 2 }} numberOfLines={2}>
+          <Text
+            style={{ fontFamily: FONT.body, fontSize: 12, color: c.textBody, marginTop: 3 }}
+            numberOfLines={2}
+          >
             {n.body}
           </Text>
           {n.createdAt && (
-            <Text style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+            <Text
+              style={{
+                fontFamily: FONT.mono,
+                fontSize: 10,
+                color: c.textMuted,
+                marginTop: 5,
+                letterSpacing: 0.4,
+              }}
+            >
               {formatTimeAgo(n.createdAt)}
             </Text>
           )}

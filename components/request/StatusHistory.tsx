@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusChange } from "@/types";
 import { getStatusLabel, getStatusColor } from "@/utils/status";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER } from "@/constants/Brutalism";
 import { formatTimeAgo } from "@/utils/time";
 
 interface StatusHistoryProps {
@@ -12,13 +14,22 @@ interface StatusHistoryProps {
 
 export function StatusHistory({ history }: StatusHistoryProps) {
   const c = useColors();
-
   if (!history || history.length === 0) return null;
 
   return (
-    <View className="mt-4">
-      <Text className="text-sm font-semibold mb-3" style={{ color: c.textSecondary }}>
-        Status History
+    <View style={{ marginTop: 16 }}>
+      <Text
+        style={{
+          fontFamily: FONT.display,
+          fontSize: 13,
+          fontWeight: "900",
+          letterSpacing: 0.8,
+          textTransform: "uppercase",
+          color: c.text,
+          marginBottom: 12,
+        }}
+      >
+        ◼ Status history
       </Text>
       {history.map((change, index) => {
         const toColor = getStatusColor(change.to);
@@ -27,42 +38,85 @@ export function StatusHistory({ history }: StatusHistoryProps) {
           : "";
 
         return (
-          <View key={index} className="flex-row mb-3">
-            {/* Timeline line + dot */}
-            <View className="items-center mr-3" style={{ width: 20 }}>
+          <View key={index} style={{ flexDirection: "row", marginBottom: 14 }}>
+            {/* Brutalist timeline dot + rail */}
+            <View style={{ alignItems: "center", marginRight: 12, width: 22 }}>
               <View
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: toColor }}
+                style={{
+                  width: 16,
+                  height: 16,
+                  backgroundColor: toColor,
+                  borderWidth: BORDER.base,
+                  borderColor: palette.ink,
+                }}
               />
               {index < history.length - 1 && (
                 <View
-                  className="w-0.5 flex-1 mt-1"
-                  style={{ backgroundColor: c.borderLight }}
+                  style={{
+                    width: 3,
+                    flex: 1,
+                    marginTop: 4,
+                    backgroundColor: palette.ink,
+                  }}
                 />
               )}
             </View>
 
-            {/* Content */}
-            <View className="flex-1 pb-1">
-              <View className="flex-row items-center flex-wrap">
-                <Text className="text-xs font-medium" style={{ color: c.textSecondary }}>
+            <View style={{ flex: 1, paddingBottom: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+                <Text
+                  style={{
+                    fontFamily: FONT.display,
+                    fontSize: 11,
+                    fontWeight: "900",
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    color: c.textBody,
+                  }}
+                >
                   {getStatusLabel(change.from)}
                 </Text>
                 <Ionicons
                   name="arrow-forward"
-                  size={10}
-                  color={c.textMuted}
-                  style={{ marginHorizontal: 4 }}
+                  size={11}
+                  color={palette.ink}
+                  style={{ marginHorizontal: 6 }}
                 />
-                <Text className="text-xs font-semibold" style={{ color: toColor }}>
+                <Text
+                  style={{
+                    fontFamily: FONT.display,
+                    fontSize: 11,
+                    fontWeight: "900",
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    color: toColor === palette.mustard500 || toColor === palette.lime500 ? palette.ink : toColor,
+                  }}
+                >
                   {getStatusLabel(change.to)}
                 </Text>
               </View>
-              <Text className="text-xs mt-0.5" style={{ color: c.textMuted }}>
-                by {change.changedByName} {timeStr ? `• ${timeStr}` : ""}
+              <Text
+                style={{
+                  fontFamily: FONT.mono,
+                  fontSize: 11,
+                  marginTop: 3,
+                  color: c.textMuted,
+                  letterSpacing: 0.2,
+                }}
+              >
+                by {change.changedByName}
+                {timeStr ? `  ·  ${timeStr}` : ""}
               </Text>
               {change.note ? (
-                <Text className="text-xs mt-1" style={{ color: c.textTertiary }}>
+                <Text
+                  style={{
+                    fontFamily: FONT.body,
+                    fontSize: 12,
+                    marginTop: 4,
+                    color: c.textBody,
+                    lineHeight: 16,
+                  }}
+                >
                   {change.note}
                 </Text>
               ) : null}

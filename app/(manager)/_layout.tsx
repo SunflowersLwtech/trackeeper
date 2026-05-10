@@ -54,8 +54,8 @@ export default function ManagerLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: palette.ink,
-        tabBarInactiveTintColor: palette.ink400,
+        tabBarActiveTintColor: c.text,
+        tabBarInactiveTintColor: c.textTertiary,
         tabBarStyle: {
           borderTopWidth: BORDER.heavy,
           borderTopColor: palette.ink,
@@ -76,7 +76,7 @@ export default function ManagerLayout() {
           borderBottomWidth: BORDER.base,
           borderBottomColor: palette.ink,
         },
-        headerTintColor: palette.ink,
+        headerTintColor: c.text,
         headerTitleStyle: {
           fontFamily: FONT.display,
           fontSize: 20,
@@ -118,6 +118,13 @@ export default function ManagerLayout() {
         options={{
           title: "Analytics",
           tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="payments"
+        options={{
+          title: "Payments",
+          tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

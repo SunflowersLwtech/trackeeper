@@ -18,6 +18,7 @@ interface ImageGalleryProps {
   layout?: "horizontal" | "grid-2" | "grid-3";
   thumbSize?: number;
   maxThumbs?: number;
+  gridTileSize?: number;
   testIDPrefix?: string;
 }
 
@@ -32,6 +33,7 @@ export function ImageGallery({
   layout = "horizontal",
   thumbSize = 96,
   maxThumbs,
+  gridTileSize,
   testIDPrefix = "image",
 }: ImageGalleryProps) {
   const [open, setOpen] = useState(false);
@@ -88,16 +90,19 @@ export function ImageGallery({
 
   let body: React.ReactNode = null;
   if (layout === "horizontal") {
-    body = (
+    const thumbs = visible.map((uri, i) => renderThumb(uri, i, thumbSize));
+    body = visible.length <= 1 ? (
+      <View style={styles.row}>{thumbs}</View>
+    ) : (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {visible.map((uri, i) => renderThumb(uri, i, thumbSize))}
+        {thumbs}
       </ScrollView>
     );
   } else {
     const cols = layout === "grid-2" ? 2 : 3;
     body = (
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {visible.map((uri, i) => renderThumb(uri, i, cols === 2 ? 140 : 110))}
+        {visible.map((uri, i) => renderThumb(uri, i, gridTileSize ?? (cols === 2 ? 140 : 110)))}
       </View>
     );
   }

@@ -16,6 +16,19 @@ import type { RequestSLA, RequestPriority, SlaPriority } from "@/types";
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
+function timestampMillis(value: unknown): number | null {
+  const maybe = value as { toMillis?: () => number } | null | undefined;
+  if (typeof maybe?.toMillis !== "function") return null;
+  const ms = maybe.toMillis();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function pausedMillis(sla: RequestSLA, now: Date): number {
+  const pausedAt = timestampMillis(sla.pausedAt);
+  if (pausedAt == null) return 0;
+  return Math.max(0, now.getTime() - pausedAt);
+}
+
 export interface SlaTargetSpec {
   responseMs: number;
   resolutionMs: number;
@@ -59,7 +72,8 @@ export function pauseSla(sla: RequestSLA, now: Date = new Date()): RequestSLA {
 /** Resume the SLA — accumulates paused duration into totalPausedMs. */
 export function resumeSla(sla: RequestSLA, now: Date = new Date()): RequestSLA {
   if (!sla.pausedAt) return sla;
-  const pausedMs = now.getTime() - sla.pausedAt.toMillis();
+  const pausedAt = timestampMillis(sla.pausedAt);
+  const pausedMs = pausedAt == null ? 0 : now.getTime() - pausedAt;
   return {
     ...sla,
     pausedAt: null,
@@ -72,15 +86,17 @@ export function resumeSla(sla: RequestSLA, now: Date = new Date()): RequestSLA {
  * time (paused minutes are added to the deadline).
  */
 export function effectiveResolutionAt(sla: RequestSLA, now: Date = new Date()): number {
-  const target = sla.resolutionTargetAt.toMillis();
+  const target = timestampMillis(sla.resolutionTargetAt);
+  if (target == null) return now.getTime();
   const paused =
-    sla.totalPausedMs +
-    (sla.pausedAt ? Math.max(0, now.getTime() - sla.pausedAt.toMillis()) : 0);
+    (sla.totalPausedMs ?? 0) +
+    pausedMillis(sla, now);
   return target + paused;
 }
 
 /** Remaining ms until breach (negative if already breached). */
 export function slaRemainingMs(sla: RequestSLA, now: Date = new Date()): number {
+  if (timestampMillis(sla.resolutionTargetAt) == null) return Number.POSITIVE_INFINITY;
   return effectiveResolutionAt(sla, now) - now.getTime();
 }
 
@@ -91,12 +107,17 @@ export type SlaSeverity = "ok" | "warning" | "danger" | "breached";
  * Thresholds taken from Jira SM / Freshdesk: 50% / 20% / 0%.
  */
 export function slaSeverity(sla: RequestSLA, now: Date = new Date()): SlaSeverity {
+  if (timestampMillis(sla.resolutionTargetAt) == null || timestampMillis(sla.responseTargetAt) == null) {
+    return "ok";
+  }
   const remaining = slaRemainingMs(sla, now);
   if (remaining <= 0) return "breached";
-  const totalMs = sla.resolutionTargetAt.toMillis() - sla.responseTargetAt.toMillis()
-    + (sla.responseTargetAt.toMillis() - (sla.responseTargetAt.toMillis() - sla.totalPausedMs));
+  const responseTarget = timestampMillis(sla.responseTargetAt) ?? now.getTime();
+  const resolutionTarget = timestampMillis(sla.resolutionTargetAt) ?? now.getTime();
+  const totalMs = resolutionTarget - responseTarget
+    + (responseTarget - (responseTarget - (sla.totalPausedMs ?? 0)));
   // Simpler: total = resolutionTarget - createdAt window; we approximate via spec.
-  const spec = SLA_TARGETS[sla.priority];
+  const spec = SLA_TARGETS[sla.priority] ?? SLA_TARGETS.low;
   const fullWindowMs = spec.resolutionMs;
   const ratio = remaining / fullWindowMs;
   if (ratio < 0.2) return "danger";

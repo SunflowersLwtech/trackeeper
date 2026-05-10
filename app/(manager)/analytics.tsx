@@ -13,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { WebContainer } from "@/components/ui/WebContainer";
 import { SkeletonList } from "@/components/ui/SkeletonCard";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { StatCard } from "@/components/charts/StatCard";
 import { Donut } from "@/components/charts/Donut";
@@ -27,6 +29,7 @@ import {
   formatHours,
   formatPercent,
 } from "@/utils/format";
+import { friendlyErrorMessage } from "@/utils/errorMessages";
 
 const SECTION_DELAY = 80;
 
@@ -171,7 +174,9 @@ export default function ManagerAnalyticsScreen() {
         <View style={[styles.errorContainer, { backgroundColor: c.background }]}>
           <Ionicons name="alert-circle-outline" size={42} color={c.error} />
           <Text style={[styles.errorTitle, { color: c.error }]}>Failed to load analytics</Text>
-          <Text style={[styles.errorMessage, { color: c.textTertiary }]}>{error.message}</Text>
+          <Text style={[styles.errorMessage, { color: c.textTertiary }]}>
+            {friendlyErrorMessage(error, "Analytics are unavailable. Pull to refresh and try again.")}
+          </Text>
         </View>
       </WebContainer>
     );
@@ -217,7 +222,7 @@ export default function ManagerAnalyticsScreen() {
             />
             <StatCard
               icon="star-outline"
-              label={kpis.ratingCount > 0 ? `Avg Rating (${kpis.ratingCount})` : "Avg Rating"}
+              label="Avg Rating"
               value={kpis.avgRating > 0 ? kpis.avgRating.toFixed(1) : "—"}
               color={c.violet}
             />
@@ -469,20 +474,24 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 16,
     paddingBottom: 40,
-    gap: 16,
+    gap: 18,
   },
   header: {
-    marginBottom: 4,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.6,
+    fontFamily: FONT.display,
+    fontSize: 36,
+    fontWeight: "900",
+    letterSpacing: -1.4,
+    textTransform: "uppercase",
   },
   subtitle: {
-    fontSize: 13,
+    fontFamily: FONT.mono,
+    fontSize: 12,
     fontWeight: "500",
-    marginTop: 2,
+    marginTop: 4,
+    letterSpacing: 0.4,
   },
   kpiGrid: {
     flexDirection: "row",
@@ -492,16 +501,20 @@ const styles = StyleSheet.create({
   resolutionPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 12,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    backgroundColor: palette.mustard500,
+    marginTop: 14,
+    gap: 10,
+    ...SHADOW_SM,
   },
   resolutionText: {
+    fontFamily: FONT.body,
     fontSize: 12,
     fontWeight: "500",
+    color: palette.ink,
   },
   donutRow: {
     flexDirection: "row",
@@ -511,58 +524,71 @@ const styles = StyleSheet.create({
   donutCard: {
     flex: 1,
     minWidth: 240,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    padding: 16,
     alignItems: "center",
+    ...SHADOW_MD,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    padding: 18,
+    marginBottom: 14,
+    ...SHADOW_MD,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 6,
+    marginBottom: 12,
   },
   cardTitle: {
+    fontFamily: FONT.display,
     fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: -0.3,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
     alignSelf: "flex-start",
   },
   cardSubtitle: {
+    fontFamily: FONT.body,
     fontSize: 12,
     fontWeight: "500",
-    marginTop: 2,
+    marginTop: 4,
   },
   empty: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontFamily: FONT.display,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.6,
     paddingVertical: 24,
     textAlign: "center",
+    textTransform: "uppercase",
   },
   legendInline: {
     flexDirection: "row",
     alignItems: "center",
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
+    width: 12,
+    height: 12,
+    borderWidth: 1.5,
+    borderColor: palette.ink,
+    marginRight: 6,
   },
   legendInlineText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontFamily: FONT.display,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   splitBar: {
     flexDirection: "row",
-    height: 14,
-    borderRadius: 999,
+    height: 18,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     overflow: "hidden",
     marginTop: 14,
   },
@@ -572,7 +598,7 @@ const styles = StyleSheet.create({
   revenueLegend: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
+    marginTop: 14,
   },
   revenueLegendItem: {
     flexDirection: "row",
@@ -580,31 +606,40 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   revenueLegendLabel: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontFamily: FONT.display,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   revenueLegendValue: {
+    fontFamily: FONT.mono,
     fontSize: 14,
     fontWeight: "700",
-    marginTop: 1,
+    marginTop: 2,
   },
   revenueTotal: {
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: -0.4,
+    fontFamily: FONT.display,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.8,
   },
   errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    gap: 8,
+    gap: 12,
   },
   errorTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FONT.display,
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   errorMessage: {
+    fontFamily: FONT.body,
     fontSize: 13,
     fontWeight: "500",
     textAlign: "center",

@@ -176,7 +176,7 @@ export async function refundPayment(
       refundedAt: Timestamp.now(),
       refundedBy: refundedById,
       refundedByName: refundedByName,
-      refundReason: reason ?? undefined,
+      refundReason: reason ?? null,
     };
     tx.update(ref, { payment: next });
     return next;
@@ -210,7 +210,8 @@ export async function markPaymentPending(
   payerId: string,
   payerName: string,
 ): Promise<void> {
-  if (amount <= 0) {
+  const normalizedAmount = Math.round(amount * 100) / 100;
+  if (normalizedAmount <= 0) {
     throw new Error("Payment amount must be positive");
   }
   const ref = doc(db, REQUESTS_COLLECTION, requestId);
@@ -220,7 +221,15 @@ export async function markPaymentPending(
       throw new Error("Request not found");
     }
     const data = snap.data() as MaintenanceRequest;
+    if (!data.cost) {
+      throw new Error("Cost has not been set yet");
+    }
     const current = data.payment?.status;
+    if (Math.abs(data.cost.total - normalizedAmount) > 0.01) {
+      throw new Error(
+        `Amount mismatch: recorded cost is ${data.cost.total}, given ${normalizedAmount}`,
+      );
+    }
     if (current === "paid" || current === "refunded") {
       throw new Error(`Cannot mark pending: payment is already ${current}`);
     }
@@ -228,7 +237,7 @@ export async function markPaymentPending(
       payment: {
         status: "pending",
         method,
-        amount: Math.round(amount * 100) / 100,
+        amount: normalizedAmount,
         paidBy: payerId,
         paidByName: payerName,
         paidAt: Timestamp.now(),

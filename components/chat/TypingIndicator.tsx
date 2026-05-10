@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER } from "@/constants/Brutalism";
 
 interface TypingIndicatorProps {
   /** Optional names of users currently typing (e.g. ["Alice"], ["Alice", "Bob"]). */
@@ -87,25 +89,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginHorizontal: 8,
-    marginBottom: 4,
+    paddingVertical: 7,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    marginHorizontal: 12,
+    marginBottom: 6,
     maxWidth: "80%",
   },
   label: {
-    fontSize: 12,
-    fontStyle: "italic",
-    marginRight: 6,
+    fontFamily: FONT.display,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginRight: 8,
   },
   dots: {
     flexDirection: "row",
     alignItems: "center",
   },
   dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 1.5,
+    width: 6,
+    height: 6,
+    backgroundColor: palette.ink,
+    marginHorizontal: 2,
   },
 });

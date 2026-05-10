@@ -320,6 +320,22 @@ describe("refundPayment", () => {
       }),
     );
   });
+
+  it("stores null instead of undefined when refund has no reason", async () => {
+    mockTxGet.mockResolvedValue({
+      exists: () => true,
+      data: () => ({
+        payment: {
+          status: "paid",
+          amount: 100,
+          paidTo: PAYEE.id,
+        },
+      }),
+    });
+    await refundPayment("req1", PAYER.id, PAYER.name);
+    const update = mockTxUpdate.mock.calls[0][1];
+    expect(update.payment.refundReason).toBeNull();
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════

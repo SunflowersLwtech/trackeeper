@@ -102,7 +102,6 @@ describe("signUp", () => {
       role: "tenant",
       status: "pending_approval",
       unitNumber: "A-12",
-      phone: undefined,
       createdAt: "mock-ts",
     });
     expect(result).toEqual({
@@ -112,7 +111,6 @@ describe("signUp", () => {
       role: "tenant",
       status: "pending_approval",
       unitNumber: "A-12",
-      phone: undefined,
     });
   });
 
@@ -126,7 +124,7 @@ describe("signUp", () => {
     expect(mockDeleteUser).toHaveBeenCalledWith(mockUser);
   });
 
-  it("sets unitNumber to undefined when empty", async () => {
+  it("omits optional fields when empty so Firestore never sees undefined", async () => {
     mockCreateUser.mockResolvedValue({ user: { uid: "new-uid" } });
 
     const result = await signUp("t@test.com", "pass123", "Tenant", "tenant", "");
@@ -134,7 +132,7 @@ describe("signUp", () => {
     expect(result.unitNumber).toBeUndefined();
     expect(mockSetDoc).toHaveBeenCalledWith(
       "mock-doc-ref",
-      expect.objectContaining({ role: "tenant", unitNumber: undefined }),
+      expect.not.objectContaining({ unitNumber: undefined, phone: undefined }),
     );
   });
 });
@@ -168,6 +166,11 @@ describe("getUserProfile", () => {
 describe("updateUserProfile", () => {
   it("merges fields into user document", async () => {
     await updateUserProfile("u1", { name: "Updated Name" });
+    expect(mockSetDoc).toHaveBeenCalledWith("mock-doc-ref", { name: "Updated Name" }, { merge: true });
+  });
+
+  it("strips undefined fields before merging user profile", async () => {
+    await updateUserProfile("u1", { name: "Updated Name", phone: undefined });
     expect(mockSetDoc).toHaveBeenCalledWith("mock-doc-ref", { name: "Updated Name" }, { merge: true });
   });
 });

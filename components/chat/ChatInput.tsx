@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TextInput,
@@ -6,79 +6,131 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
-  Alert,
+  Text,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM } from "@/constants/Brutalism";
+import { Message, MessageReplyTo } from "@/types";
+import { MAX_IMAGES_PER_MESSAGE, assertWithinImageLimit } from "@/utils/images";
 
 interface ChatInputProps {
-  /** Send handler — receives trimmed text and (optionally) the picked image's local URI. */
-  onSend: (text: string, imageUri?: string) => void | Promise<void>;
+  /** Send handler — receives trimmed text and (optionally) picked image URIs. */
+  onSend: (
+    text: string,
+    imageUris?: string[],
+    options?: { replyTo?: MessageReplyTo },
+  ) => void | Promise<void>;
+  /** Edit handler — when set, the input is in "edit" mode for this message. */
+  onSubmitEdit?: (newText: string) => void | Promise<void>;
   disabled?: boolean;
-  /** Called when the user starts/stops typing — used to drive the typing indicator. */
   onTypingChange?: (typing: boolean) => void;
+  /** Current reply target (rendered as a banner above the input). */
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
+  /** Current message being edited. */
+  editingMessage?: Message | null;
+  onCancelEdit?: () => void;
 }
 
-export function ChatInput({ onSend, disabled, onTypingChange }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  onSubmitEdit,
+  disabled,
+  onTypingChange,
+  replyingTo,
+  onCancelReply,
+  editingMessage,
+  onCancelEdit,
+}: ChatInputProps) {
   const c = useColors();
   const [text, setText] = useState("");
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUris, setImageUris] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
   const [sending, setSending] = useState(false);
 
+  // Pre-fill text when entering edit mode.
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.text);
+      setImageUris([]);
+    }
+  }, [editingMessage]);
+
+  const isEditing = !!editingMessage;
   const canSend =
-    !disabled && !sending && (text.trim().length > 0 || imageUri !== null);
+    !disabled &&
+    !sending &&
+    (text.trim().length > 0 || (!isEditing && imageUris.length > 0));
 
   const handleTextChange = (next: string) => {
     setText(next);
-    if (onTypingChange) {
-      onTypingChange(next.trim().length > 0);
-    }
+    if (onTypingChange) onTypingChange(next.trim().length > 0);
   };
 
-  const pickImage = async () => {
-    if (picking || sending) return;
+  const pickImages = async () => {
+    if (picking || sending || isEditing) return;
     setPicking(true);
     try {
+      const remaining = MAX_IMAGES_PER_MESSAGE - imageUris.length;
+      if (remaining <= 0) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        quality: 0.7,
-        allowsEditing: true,
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.85,
       });
-      if (result.canceled || !result.assets[0]) return;
-
-      const asset = result.assets[0];
-      const fileSize = asset.fileSize ?? 0;
-      if (fileSize > 0 && fileSize > MAX_IMAGE_BYTES) {
-        Alert.alert("Image too large", "Please choose an image under 5 MB.");
-        return;
+      if (result.canceled) return;
+      const newUris = result.assets.map((a) => a.uri).filter(Boolean);
+      try {
+        assertWithinImageLimit(newUris.length, imageUris.length, MAX_IMAGES_PER_MESSAGE);
+      } catch {
+        // ignore — picker capped to remaining anyway
       }
-      setImageUri(asset.uri);
+      setImageUris((prev) => [...prev, ...newUris].slice(0, MAX_IMAGES_PER_MESSAGE));
     } finally {
       setPicking(false);
     }
   };
 
-  const removeImage = () => {
+  const removeImage = (idx: number) => {
     if (sending) return;
-    setImageUri(null);
+    setImageUris((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSend = async () => {
     if (!canSend) return;
     const trimmed = text.trim();
-    const uri = imageUri;
-    if (!trimmed && !uri) return;
-
     setSending(true);
     try {
-      await onSend(trimmed, uri ?? undefined);
-      setText("");
-      setImageUri(null);
-      if (onTypingChange) onTypingChange(false);
+      if (isEditing && onSubmitEdit) {
+        await onSubmitEdit(trimmed);
+        setText("");
+      } else {
+        await onSend(
+          trimmed,
+          imageUris.length > 0 ? imageUris : undefined,
+          replyingTo
+            ? {
+                replyTo: {
+                  messageId: replyingTo.id,
+                  senderId: replyingTo.senderId,
+                  textPreview: replyingTo.text || "Photo",
+                  type:
+                    (replyingTo.imageUrls && replyingTo.imageUrls.length > 0) ||
+                    !!replyingTo.imageUrl
+                      ? "image"
+                      : "text",
+                },
+              }
+            : undefined,
+        );
+        setText("");
+        setImageUris([]);
+        if (onTypingChange) onTypingChange(false);
+      }
     } finally {
       setSending(false);
     }
@@ -86,77 +138,102 @@ export function ChatInput({ onSend, disabled, onTypingChange }: ChatInputProps) 
 
   return (
     <View style={styles.outer}>
-      {/* Image preview row */}
-      {imageUri && (
-        <View
-          style={[
-            styles.previewRow,
-            { borderTopColor: c.borderLight, backgroundColor: c.background },
-          ]}
-        >
-          <View style={[styles.previewWrapper, { borderColor: c.borderLight }]}>
-            <Image
-              source={{ uri: imageUri }}
-              style={styles.previewImage}
-              resizeMode="cover"
-              accessibilityLabel="Selected image preview"
-            />
-            <TouchableOpacity
-              onPress={removeImage}
-              style={[styles.removeBadge, { backgroundColor: c.error }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Remove image"
-              testID="chat-image-remove"
-            >
-              <Ionicons name="close" size={14} color="#fff" />
-            </TouchableOpacity>
+      {/* Reply banner */}
+      {replyingTo && !isEditing && (
+        <View style={styles.banner}>
+          <View style={styles.bannerStripe} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerLabel}>
+              REPLYING TO {replyingTo.senderName.toUpperCase()}
+            </Text>
+            <Text style={styles.bannerPreview} numberOfLines={1}>
+              {replyingTo.text || "Photo"}
+            </Text>
           </View>
+          <TouchableOpacity
+            onPress={onCancelReply}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel reply"
+            testID="chat-cancel-reply"
+          >
+            <Ionicons name="close-circle" size={22} color={palette.ink} />
+          </TouchableOpacity>
         </View>
       )}
 
-      <View
-        style={[
-          styles.container,
-          { borderTopColor: c.borderLight, backgroundColor: c.background },
-        ]}
-      >
-        {/* Attach button */}
-        <TouchableOpacity
-          style={[
-            styles.attachButton,
-            { backgroundColor: c.surfaceAlt, borderColor: c.borderLight },
-          ]}
-          onPress={pickImage}
-          disabled={picking || sending || disabled}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Attach image"
-          testID="chat-attach-button"
-        >
-          {picking ? (
-            <ActivityIndicator size="small" color={c.textTertiary} />
-          ) : (
-            <Ionicons name="image-outline" size={20} color={c.textTertiary} />
-          )}
-        </TouchableOpacity>
+      {/* Edit banner */}
+      {isEditing && (
+        <View style={[styles.banner, { backgroundColor: palette.mustard50 }]}>
+          <Ionicons name="create" size={16} color={palette.ink} />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.bannerLabel}>EDITING MESSAGE…</Text>
+            <Text style={styles.bannerPreview} numberOfLines={1}>
+              Tap send to save changes
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={onCancelEdit}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel edit"
+            testID="chat-cancel-edit"
+          >
+            <Ionicons name="close-circle" size={22} color={palette.ink} />
+          </TouchableOpacity>
+        </View>
+      )}
 
-        <View
-          style={[
-            styles.inputWrapper,
-            { backgroundColor: c.surfaceAlt, borderColor: c.borderLight },
-          ]}
-        >
+      {/* Image preview row */}
+      {imageUris.length > 0 && !isEditing && (
+        <View style={styles.previewRow}>
+          {imageUris.map((uri, idx) => (
+            <View key={`${uri}-${idx}`} style={styles.previewWrapper}>
+              <Image source={{ uri }} style={styles.previewImage} resizeMode="cover" accessibilityLabel="Selected image preview" />
+              <TouchableOpacity
+                onPress={() => removeImage(idx)}
+                style={styles.removeBadge}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove image ${idx + 1}`}
+                testID={`chat-image-remove-${idx}`}
+              >
+                <Ionicons name="close" size={12} color={palette.paper} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.container}>
+        {!isEditing && (
+          <TouchableOpacity
+            style={[styles.attachButton, { backgroundColor: c.surfaceAlt }]}
+            onPress={pickImages}
+            disabled={picking || sending || disabled || imageUris.length >= MAX_IMAGES_PER_MESSAGE}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Attach images"
+            testID="chat-attach-button"
+          >
+            {picking ? (
+              <ActivityIndicator size="small" color={palette.ink} />
+            ) : (
+              <Ionicons name="image" size={20} color={palette.ink} />
+            )}
+          </TouchableOpacity>
+        )}
+
+        <View style={[styles.inputWrapper, { backgroundColor: c.surface }]}>
           <TextInput
             style={[styles.input, { color: c.text }]}
-            placeholder="Type a message..."
+            placeholder={isEditing ? "Edit message..." : "Type a message..."}
             placeholderTextColor={c.textMuted}
             value={text}
             onChangeText={handleTextChange}
             multiline
             editable={!disabled && !sending}
             accessibilityLabel="Message input"
-            accessibilityHint="Type a message to send"
             testID="chat-message-input"
           />
         </View>
@@ -164,20 +241,23 @@ export function ChatInput({ onSend, disabled, onTypingChange }: ChatInputProps) 
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: canSend ? c.primary : c.border },
+            { backgroundColor: canSend ? palette.cobalt500 : palette.ink200 },
           ]}
           onPress={handleSend}
           disabled={!canSend}
-          activeOpacity={0.7}
+          activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Send message"
-          accessibilityState={{ disabled: !canSend }}
+          accessibilityLabel={isEditing ? "Save edit" : "Send message"}
           testID="chat-send-button"
         >
           {sending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={palette.paper} />
           ) : (
-            <Ionicons name="arrow-up" size={20} color="#fff" />
+            <Ionicons
+              name={isEditing ? "checkmark" : "arrow-up"}
+              size={20}
+              color={palette.paper}
+            />
           )}
         </TouchableOpacity>
       </View>
@@ -189,17 +269,52 @@ const styles = StyleSheet.create({
   outer: {
     width: "100%",
   },
-  previewRow: {
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderTopWidth: 1,
+    backgroundColor: palette.cream100,
+    borderTopWidth: BORDER.base,
+    borderTopColor: palette.ink,
+    gap: 6,
+  },
+  bannerStripe: {
+    width: 3,
+    alignSelf: "stretch",
+    backgroundColor: palette.cobalt500,
+    marginRight: 8,
+  },
+  bannerLabel: {
+    fontFamily: FONT.display,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    color: palette.ink600,
+    textTransform: "uppercase",
+  },
+  bannerPreview: {
+    fontFamily: FONT.body,
+    fontSize: 12,
+    color: palette.ink,
+    marginTop: 2,
+  },
+  previewRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: BORDER.base,
+    borderTopColor: palette.ink,
   },
   previewWrapper: {
-    width: 84,
-    height: 84,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 76,
+    height: 76,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     overflow: "hidden",
+    ...SHADOW_SM,
   },
   previewImage: {
     width: "100%",
@@ -207,11 +322,13 @@ const styles = StyleSheet.create({
   },
   removeBadge: {
     position: "absolute",
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    backgroundColor: palette.tomato500,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -219,39 +336,45 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
+    paddingVertical: 10,
+    borderTopWidth: BORDER.base,
+    borderTopColor: palette.ink,
   },
   attachButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.xs,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
-    marginBottom: 2,
+    ...SHADOW_SM,
   },
   inputWrapper: {
     flex: 1,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 16,
+    borderRadius: RADIUS.xs,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginRight: 8,
     maxHeight: 120,
   },
   input: {
-    fontSize: 15,
+    fontFamily: FONT.body,
+    fontSize: 14,
     lineHeight: 20,
     maxHeight: 100,
   },
   sendButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.xs,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
+    ...SHADOW_SM,
   },
 });

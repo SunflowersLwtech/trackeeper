@@ -52,6 +52,7 @@ function createAuth() {
 export const auth = createAuth();
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  ignoreUndefinedProperties: true,
 });
 export const storage = getStorage(app);
 export default app;

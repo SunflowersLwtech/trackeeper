@@ -5,13 +5,20 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ChatView } from "@/components/chat/ChatView";
 import { Message } from "@/types";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 
 interface ChatFABProps {
   messages: Message[];
   currentUserId: string;
+  currentUserRole?: "tenant" | "manager" | "maintainer";
   loading: boolean;
   error: Error | null;
-  onSend: (text: string, imageUri?: string) => void | Promise<void>;
+  onSend: (
+    text: string,
+    imageUris?: string[],
+    options?: { replyTo?: import("@/types").MessageReplyTo },
+  ) => void | Promise<void>;
   /** Optional label shown in the sheet header */
   headerLabel?: string;
   /** Request id forwarded to ChatView for read-receipt marking. */
@@ -29,6 +36,7 @@ interface ChatFABProps {
 export function ChatFAB({
   messages,
   currentUserId,
+  currentUserRole,
   loading,
   error,
   onSend,
@@ -115,6 +123,7 @@ export function ChatFAB({
         <ChatView
           messages={messages}
           currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
           loading={loading}
           error={error}
           onSend={onSend}
@@ -132,61 +141,69 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 24,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: RADIUS.xs,
+    borderWidth: BORDER.heavy,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
+    ...SHADOW_MD,
     zIndex: 100,
   },
   badge: {
     position: "absolute",
-    top: -2,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    top: -10,
+    right: -10,
+    minWidth: 24,
+    height: 24,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
+    color: palette.paper,
+    fontFamily: FONT.display,
+    fontSize: 11,
+    fontWeight: "900",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
+    paddingBottom: 12,
+    borderBottomWidth: BORDER.base,
+    borderBottomColor: palette.ink,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
   headerText: {
+    fontFamily: FONT.display,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   headerBadge: {
-    marginLeft: 8,
-    minWidth: 22,
+    marginLeft: 10,
+    minWidth: 24,
     height: 22,
-    borderRadius: 11,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    backgroundColor: palette.mustard500,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
   },
   headerBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontFamily: FONT.mono,
+    fontSize: 11,
+    fontWeight: "700",
+    color: palette.ink,
   },
 });

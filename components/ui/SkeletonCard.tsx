@@ -1,17 +1,19 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { BORDER, RADIUS, SHADOW_MD } from "@/constants/Brutalism";
 
-/** A single pulsing skeleton card that mimics RequestCard layout. */
+/** A pulsing skeleton card matching the brutalist RequestCard. */
 function SkeletonCardInner() {
   const c = useColors();
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const opacity = useRef(new Animated.Value(0.45)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.45, duration: 700, useNativeDriver: true }),
       ]),
     );
     animation.start();
@@ -23,24 +25,20 @@ function SkeletonCardInner() {
       style={[
         styles.card,
         {
-          borderColor: c.borderLight,
           backgroundColor: c.surface,
           opacity,
         },
       ]}
     >
-      {/* Title row */}
       <View style={styles.row}>
-        <View style={[styles.bar, styles.titleBar, { backgroundColor: c.borderLight }]} />
-        <View style={[styles.bar, styles.badge, { backgroundColor: c.borderLight }]} />
+        <View style={[styles.bar, styles.titleBar]} />
+        <View style={[styles.bar, styles.badge]} />
       </View>
-      {/* Description lines */}
-      <View style={[styles.bar, styles.descLine1, { backgroundColor: c.borderLight }]} />
-      <View style={[styles.bar, styles.descLine2, { backgroundColor: c.borderLight }]} />
-      {/* Footer row */}
+      <View style={[styles.bar, styles.descLine1]} />
+      <View style={[styles.bar, styles.descLine2]} />
       <View style={styles.row}>
-        <View style={[styles.bar, styles.categoryBar, { backgroundColor: c.borderLight }]} />
-        <View style={[styles.bar, styles.timeBar, { backgroundColor: c.borderLight }]} />
+        <View style={[styles.bar, styles.categoryBar]} />
+        <View style={[styles.bar, styles.timeBar]} />
       </View>
     </Animated.View>
   );
@@ -48,7 +46,6 @@ function SkeletonCardInner() {
 
 export const SkeletonCard = React.memo(SkeletonCardInner);
 
-/** Renders N skeleton cards as a loading placeholder. */
 export function SkeletonList({ count = 4 }: { count?: number }) {
   return (
     <View style={styles.list}>
@@ -62,13 +59,15 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
   },
   card: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    borderRadius: RADIUS.sm,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...SHADOW_MD,
   },
   row: {
     flexDirection: "row",
@@ -76,22 +75,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   bar: {
-    borderRadius: 6,
+    backgroundColor: palette.ink200,
   },
   titleBar: {
-    height: 14,
-    width: "60%",
+    height: 16,
+    width: "55%",
     marginBottom: 12,
   },
   badge: {
     height: 22,
-    width: 64,
+    width: 78,
     marginBottom: 12,
-    borderRadius: 11,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
   },
   descLine1: {
     height: 10,
-    width: "90%",
+    width: "92%",
     marginBottom: 6,
   },
   descLine2: {
@@ -100,12 +100,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   categoryBar: {
-    height: 24,
-    width: 72,
-    borderRadius: 6,
+    height: 22,
+    width: 86,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
   },
   timeBar: {
     height: 10,
-    width: 40,
+    width: 48,
   },
 });

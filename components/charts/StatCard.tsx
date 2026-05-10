@@ -2,37 +2,35 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { withOpacity } from "@/utils/color";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
-  /** Optional delta percentage — positive = up (green), negative = down (red). */
   trend?: number;
-  /** Accent color for the icon tile. */
   color: string;
   onPress?: () => void;
 }
 
-/**
- * KPI card with a tinted icon tile, headline value, label, and optional
- * trend chip. Renders as a TouchableOpacity when onPress is provided so the
- * caller can navigate to a drill-in screen.
- */
+const DARK_ON: ReadonlySet<string> = new Set<string>([
+  palette.cobalt500,
+  palette.tomato500,
+  palette.plum500,
+  palette.sky500,
+  palette.ink,
+]);
+
 export function StatCard({ icon, label, value, trend, color, onPress }: StatCardProps) {
   const c = useColors();
-
+  const useLightOnIcon = DARK_ON.has(color);
   const trendUp = (trend ?? 0) >= 0;
-  const trendColor = trendUp ? c.success : c.error;
-  const trendBg = trendUp ? c.successBg : c.errorBg;
 
   const cardStyle = [
     styles.card,
     {
       backgroundColor: c.surface,
-      borderColor: c.borderLight,
-      shadowColor: c.text,
     },
   ];
 
@@ -42,34 +40,44 @@ export function StatCard({ icon, label, value, trend, color, onPress }: StatCard
         <View
           style={[
             styles.iconTile,
-            { backgroundColor: withOpacity(color, 0.14) },
+            { backgroundColor: color },
           ]}
         >
-          <Ionicons name={icon} size={18} color={color} />
+          <Ionicons name={icon} size={20} color={useLightOnIcon ? palette.paper : palette.ink} />
         </View>
         {typeof trend === "number" ? (
           <View
             style={[
               styles.trendChip,
-              { backgroundColor: trendBg },
+              { backgroundColor: trendUp ? palette.lime500 : palette.tomato500 },
             ]}
           >
             <Ionicons
               name={trendUp ? "arrow-up" : "arrow-down"}
-              size={10}
-              color={trendColor}
+              size={11}
+              color={trendUp ? palette.ink : palette.paper}
             />
-            <Text style={[styles.trendText, { color: trendColor }]}>
+            <Text
+              style={[
+                styles.trendText,
+                { color: trendUp ? palette.ink : palette.paper },
+              ]}
+            >
               {Math.abs(trend).toFixed(0)}%
             </Text>
           </View>
         ) : null}
       </View>
-      <Text style={[styles.value, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>
+      <Text
+        style={[styles.value, { color: c.text }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
-      <Text style={[styles.label, { color: c.textTertiary }]} numberOfLines={1}>
-        {label}
+      <View style={styles.labelDivider} />
+      <Text style={[styles.label, { color: c.textBody }]} numberOfLines={1}>
+        {label.toUpperCase()}
       </Text>
     </>
   );
@@ -78,7 +86,7 @@ export function StatCard({ icon, label, value, trend, color, onPress }: StatCard
     return (
       <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.7}
+        activeOpacity={0.85}
         style={cardStyle}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
@@ -103,13 +111,13 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 140,
-    borderWidth: 1,
-    borderRadius: 16,
+    minHeight: 132,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    borderRadius: RADIUS.sm,
     padding: 14,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
+    overflow: "hidden",
+    ...SHADOW_MD,
   },
   headerRow: {
     flexDirection: "row",
@@ -118,33 +126,49 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconTile: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOW_SM,
   },
   trendChip: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 999,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     gap: 2,
   },
   trendText: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginLeft: 2,
+    fontFamily: FONT.display,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    marginLeft: 3,
   },
   value: {
-    fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: -0.5,
+    fontFamily: FONT.display,
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  labelDivider: {
+    height: BORDER.base,
+    backgroundColor: palette.ink,
+    width: 24,
+    marginVertical: 6,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
+    fontFamily: FONT.display,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 });

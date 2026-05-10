@@ -2,7 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { withOpacity } from "@/utils/color";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM } from "@/constants/Brutalism";
 import { formatCurrency } from "@/utils/format";
 
 interface LeaderboardRowProps {
@@ -11,21 +12,15 @@ interface LeaderboardRowProps {
   completedJobs: number;
   avgRating: number;
   totalEarnings: number;
-  /** Accent color (typically derived from rank). */
   color: string;
 }
 
 const MEDAL_BY_RANK: Record<number, { icon: keyof typeof Ionicons.glyphMap; tint: string }> = {
-  1: { icon: "trophy", tint: "#fbbf24" },
-  2: { icon: "medal", tint: "#9ca3af" },
-  3: { icon: "medal", tint: "#b45309" },
+  1: { icon: "trophy", tint: palette.mustard500 },
+  2: { icon: "medal", tint: palette.ink300 },
+  3: { icon: "medal", tint: palette.tomato500 },
 };
 
-/**
- * One row of the maintainer ranking. Renders a medal for ranks 1–3 and a
- * neutral numeric badge otherwise. Shows completed jobs, avg rating, and
- * total earnings in three compact stat groups.
- */
 export function LeaderboardRow({
   rank,
   name,
@@ -41,24 +36,19 @@ export function LeaderboardRow({
     <View
       style={[
         styles.row,
-        {
-          backgroundColor: c.surface,
-          borderColor: c.borderLight,
-        },
+        { backgroundColor: c.surface },
       ]}
     >
       <View
         style={[
           styles.rankTile,
-          {
-            backgroundColor: medal ? withOpacity(medal.tint, 0.16) : withOpacity(color, 0.14),
-          },
+          { backgroundColor: medal ? medal.tint : color },
         ]}
       >
         {medal ? (
-          <Ionicons name={medal.icon} size={18} color={medal.tint} />
+          <Ionicons name={medal.icon} size={20} color={palette.ink} />
         ) : (
-          <Text style={[styles.rankText, { color }]}>#{rank}</Text>
+          <Text style={styles.rankText}>{rank}</Text>
         )}
       </View>
 
@@ -68,14 +58,12 @@ export function LeaderboardRow({
         </Text>
         <View style={styles.statsRow}>
           <View style={styles.statGroup}>
-            <Ionicons name="checkmark-done-outline" size={11} color={c.textTertiary} />
-            <Text style={[styles.statText, { color: c.textTertiary }]}>
-              {completedJobs} jobs
-            </Text>
+            <Ionicons name="checkmark-done" size={11} color={palette.ink} />
+            <Text style={styles.statText}>{completedJobs} JOBS</Text>
           </View>
           <View style={styles.statGroup}>
-            <Ionicons name="star" size={11} color={c.warning} />
-            <Text style={[styles.statText, { color: c.textTertiary }]}>
+            <Ionicons name="star" size={11} color={palette.mustard500} />
+            <Text style={styles.statText}>
               {avgRating > 0 ? avgRating.toFixed(1) : "—"}
             </Text>
           </View>
@@ -86,7 +74,7 @@ export function LeaderboardRow({
         <Text style={[styles.earnings, { color: c.text }]} numberOfLines={1}>
           {formatCurrency(totalEarnings)}
         </Text>
-        <Text style={[styles.earningsLabel, { color: c.textMuted }]}>earned</Text>
+        <Text style={styles.earningsLabel}>EARNED</Text>
       </View>
     </View>
   );
@@ -97,34 +85,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 8,
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    marginBottom: 10,
     gap: 12,
+    ...SHADOW_SM,
   },
   rankTile: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.xs,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
     alignItems: "center",
     justifyContent: "center",
   },
   rankText: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontFamily: FONT.display,
+    fontSize: 16,
+    fontWeight: "900",
+    color: palette.ink,
+    letterSpacing: -0.5,
   },
   body: {
     flex: 1,
     minWidth: 0,
   },
   name: {
+    fontFamily: FONT.display,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "900",
+    letterSpacing: 0.2,
   },
   statsRow: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 2,
+    gap: 14,
+    marginTop: 4,
   },
   statGroup: {
     flexDirection: "row",
@@ -132,19 +129,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statText: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontFamily: FONT.mono,
+    fontSize: 10,
+    fontWeight: "700",
+    color: palette.ink,
+    letterSpacing: 0.4,
   },
   earningsBlock: {
     alignItems: "flex-end",
   },
   earnings: {
-    fontSize: 14,
-    fontWeight: "700",
+    fontFamily: FONT.display,
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.3,
   },
   earningsLabel: {
-    fontSize: 10,
-    fontWeight: "500",
-    marginTop: 1,
+    fontFamily: FONT.display,
+    fontSize: 9,
+    fontWeight: "900",
+    color: palette.ink,
+    letterSpacing: 0.8,
+    marginTop: 2,
   },
 });

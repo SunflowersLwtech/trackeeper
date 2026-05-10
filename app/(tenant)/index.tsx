@@ -14,6 +14,10 @@ import { FilterSheet, FilterSection } from "@/components/request/FilterSheet";
 import { RequestStatus } from "@/types";
 import { getStatusColor, getStatusLabel, STATUS_ORDER } from "@/utils/status";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD } from "@/constants/Brutalism";
+import { useDebounce } from "@/hooks/useDebounce";
+import { SEARCH_DEBOUNCE_MS } from "@/utils/search";
 
 const allStatuses: (RequestStatus | "all")[] = ["all", ...STATUS_ORDER, "cancelled"];
 
@@ -22,6 +26,7 @@ export default function TenantHomeScreen() {
   const c = useColors();
   const { requests, loading, error: listError, refreshing, refresh, loadMore, loadingMore, hasMore } = useTenantRequests(user?.uid);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "all">("all");
   const [sheetOpen, setSheetOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
@@ -40,13 +45,19 @@ export default function TenantHomeScreen() {
 
   const filtered = useMemo(() => {
     let result = requests;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+    if (debouncedSearch.trim()) {
+      const tokens = debouncedSearch
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length >= 2);
+      result = result.filter((r) => {
+        const haystack = `${r.title} ${r.description}`.toLowerCase();
+        return tokens.every((t) => haystack.includes(t));
+      });
     }
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter);
     return result;
-  }, [requests, search, statusFilter]);
+  }, [requests, debouncedSearch, statusFilter]);
 
   const activeFilters = useMemo<ActiveFilter[]>(() => {
     if (statusFilter === "all") return [];
@@ -91,11 +102,37 @@ export default function TenantHomeScreen() {
 
   if (listError) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: c.background }}>
-        <Text style={{ color: c.error, fontSize: 16, fontWeight: "600" }}>Failed to load requests</Text>
-        <Text className="text-xs mt-1" style={{ color: c.textMuted }}>{listError.message}</Text>
-        <TouchableOpacity className="mt-4 px-6 py-3 rounded-xl" style={{ backgroundColor: c.primary }} onPress={refresh}>
-          <Text style={{ color: c.background, fontWeight: "600" }}>Retry</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.background, padding: 24 }}>
+        <View
+          style={{
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            backgroundColor: palette.tomato500,
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            ...SHADOW_MD,
+          }}
+        >
+          <Text style={{ color: palette.paper, fontFamily: FONT.display, fontWeight: "900", fontSize: 14, letterSpacing: 0.6, textTransform: "uppercase" }}>
+            ◼ Failed to load
+          </Text>
+        </View>
+        <Text style={{ marginTop: 12, fontFamily: FONT.mono, fontSize: 12, color: c.textMuted, textAlign: "center" }}>{listError.message}</Text>
+        <TouchableOpacity
+          style={{
+            marginTop: 18,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            backgroundColor: palette.cobalt500,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            ...SHADOW_MD,
+          }}
+          onPress={refresh}
+        >
+          <Text style={{ color: palette.paper, fontFamily: FONT.display, fontWeight: "900", fontSize: 13, letterSpacing: 0.8, textTransform: "uppercase" }}>
+            Retry
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -128,22 +165,37 @@ export default function TenantHomeScreen() {
           onEndReachedThreshold={0.3}
           ListFooterComponent={<ListFooter loadingMore={loadingMore} hasMore={hasMore} itemCount={filtered.length} />}
           renderItem={({ item }) => (
-            <RequestCard request={item} onPress={() => router.push(`/(tenant)/${item.id}`)} />
+            <RequestCard
+              request={item}
+              onPress={() => router.push(`/(tenant)/${item.id}`)}
+              searchQuery={debouncedSearch}
+            />
           )}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center">
-              <Ionicons name="document-text-outline" size={48} color={c.borderLight} style={{ marginBottom: 12 }} />
-              <Text className="text-lg font-medium" style={{ color: c.textMuted }}>
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 60, paddingHorizontal: 24 }}>
+              <View
+                style={{
+                  width: 80,
+                  height: 80,
+                  backgroundColor: palette.cream200,
+                  borderWidth: BORDER.heavy,
+                  borderColor: palette.ink,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 18,
+                  ...SHADOW_MD,
+                }}
+              >
+                <Ionicons name="document-text" size={36} color={palette.ink} />
+              </View>
+              <Text style={{ fontFamily: FONT.display, fontSize: 16, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase", color: c.text, textAlign: "center" }}>
                 {search || statusFilter !== "all" ? "No matching requests" : "No requests yet"}
               </Text>
-              {!search && statusFilter === "all" && (
-                <Text className="text-sm mt-1" style={{ color: c.textMuted }}>
-                  Tap &quot;New Request&quot; to get started
-                </Text>
-              )}
-              {(search || statusFilter !== "all") && (
-                <Text className="text-sm mt-1" style={{ color: c.textMuted }}>Try adjusting your search or filters</Text>
-              )}
+              <Text style={{ marginTop: 8, fontFamily: FONT.body, fontSize: 13, color: c.textBody, textAlign: "center", maxWidth: 280, lineHeight: 18 }}>
+                {!search && statusFilter === "all"
+                  ? 'Tap "New Request" to get started.'
+                  : "Try adjusting your search or filters."}
+              </Text>
             </View>
           }
         />

@@ -63,17 +63,17 @@ export function Sparkline({
       <Path
         d={linePath}
         stroke={color}
-        strokeWidth={1.6}
+        strokeWidth={2.2}
         fill="none"
-        strokeLinejoin="round"
-        strokeLinecap="round"
+        strokeLinejoin="miter"
+        strokeLinecap="square"
       />
-      {/* End-point dot for visual emphasis */}
+      {/* End-point square for brutalist emphasis */}
       <Path
-        d={`M ${points[points.length - 1].x.toFixed(2)} ${points[points.length - 1].y.toFixed(2)} m -1.6 0 a 1.6 1.6 0 1 0 3.2 0 a 1.6 1.6 0 1 0 -3.2 0`}
+        d={`M ${(points[points.length - 1].x - 2.5).toFixed(2)} ${(points[points.length - 1].y - 2.5).toFixed(2)} h 5 v 5 h -5 z`}
         fill={color}
-        stroke={withOpacity(color, 0.4)}
-        strokeWidth={1}
+        stroke="#0A0A0A"
+        strokeWidth={1.5}
       />
     </Svg>
   );

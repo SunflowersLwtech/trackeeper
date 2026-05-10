@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM, SHADOW_MD } from "@/constants/Brutalism";
 import { computeCostTotal } from "@/services/payments";
 import { RequestCost } from "@/types";
 
@@ -41,53 +43,75 @@ export function CostBreakdownEditor({ initial, defaultHourlyRate = 80, onSave, s
   return (
     <View
       style={{
-        marginTop: 14,
-        padding: 14,
-        borderRadius: 16,
+        marginTop: 16,
+        padding: 16,
+        borderRadius: RADIUS.sm,
         backgroundColor: c.surface,
-        borderWidth: 1,
-        borderColor: c.borderLight,
+        borderWidth: BORDER.heavy,
+        borderColor: palette.ink,
+        ...SHADOW_MD,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-        <Ionicons name="calculator-outline" size={18} color={c.primary} />
-        <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: "700", color: c.text }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            backgroundColor: palette.cobalt500,
+            borderWidth: BORDER.base,
+            borderColor: palette.ink,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="calculator" size={18} color={palette.paper} />
+        </View>
+        <Text
+          style={{
+            marginLeft: 10,
+            fontFamily: FONT.display,
+            fontSize: 15,
+            fontWeight: "900",
+            letterSpacing: 0.4,
+            color: c.text,
+            textTransform: "uppercase",
+          }}
+        >
           Cost breakdown
         </Text>
       </View>
 
-      <View style={{ flexDirection: "row" }}>
-        <NumberField label="Hours" value={laborHours} onChangeText={setLaborHours} colors={c} testID="cost-labor-hours" />
-        <View style={{ width: 8 }} />
-        <NumberField label="Rate (RM/h)" value={hourlyRate} onChangeText={setHourlyRate} colors={c} testID="cost-hourly-rate" />
-        <View style={{ width: 8 }} />
-        <NumberField label="Materials" value={materialCost} onChangeText={setMaterialCost} colors={c} testID="cost-material" />
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <NumberField label="HOURS" value={laborHours} onChangeText={setLaborHours} colors={c} testID="cost-labor-hours" />
+        <NumberField label="RATE RM/H" value={hourlyRate} onChangeText={setHourlyRate} colors={c} testID="cost-hourly-rate" />
+        <NumberField label="MATERIALS" value={materialCost} onChangeText={setMaterialCost} colors={c} testID="cost-material" />
       </View>
 
-      {/* Live preview */}
+      {/* Live preview receipt */}
       <View
         style={{
-          marginTop: 10,
-          padding: 10,
-          backgroundColor: c.background,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: c.borderLight,
+          marginTop: 14,
+          padding: 12,
+          backgroundColor: palette.cream100,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
         }}
       >
-        <RowLine label={`Labor (${lh}h × RM${hr.toFixed(0)})`} value={`RM ${labor.toFixed(2)}`} colors={c} />
-        <RowLine label="Materials" value={`RM ${mc.toFixed(2)}`} colors={c} />
-        <View style={{ height: 1, backgroundColor: c.borderLight, marginVertical: 6 }} />
-        <RowLine label="Total" value={`RM ${total.toFixed(2)}`} bold colors={c} />
+        <RowLine label={`Labor · ${lh}h × RM${hr.toFixed(0)}`} value={`RM ${labor.toFixed(2)}`} />
+        <RowLine label="Materials" value={`RM ${mc.toFixed(2)}`} />
+        <View style={{ height: BORDER.base, backgroundColor: palette.ink, marginVertical: 8 }} />
+        <RowLine label="TOTAL" value={`RM ${total.toFixed(2)}`} bold />
       </View>
 
       <TouchableOpacity
         style={{
-          marginTop: 12,
-          backgroundColor: saving ? c.primaryLight : c.primary,
-          paddingVertical: 12,
-          borderRadius: 12,
+          marginTop: 14,
+          backgroundColor: saving ? palette.cobalt300 : palette.lime500,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
+          paddingVertical: 14,
           alignItems: "center",
+          ...SHADOW_SM,
         }}
         onPress={() => onSave(lh, hr, mc)}
         disabled={saving}
@@ -96,9 +120,18 @@ export function CostBreakdownEditor({ initial, defaultHourlyRate = 80, onSave, s
         testID="cost-save-button"
       >
         {saving ? (
-          <ActivityIndicator color={c.background} />
+          <ActivityIndicator color={palette.ink} />
         ) : (
-          <Text style={{ color: c.background, fontWeight: "700", fontSize: 13 }}>
+          <Text
+            style={{
+              color: palette.ink,
+              fontFamily: FONT.display,
+              fontSize: 13,
+              fontWeight: "900",
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+            }}
+          >
             {initial ? "Update cost" : "Set cost"}
           </Text>
         )}
@@ -118,19 +151,29 @@ interface NumberFieldProps {
 function NumberField({ label, value, onChangeText, colors: c, testID }: NumberFieldProps) {
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.textTertiary, marginBottom: 4 }}>
+      <Text
+        style={{
+          fontFamily: FONT.display,
+          fontSize: 10,
+          fontWeight: "900",
+          color: c.text,
+          marginBottom: 5,
+          letterSpacing: 0.6,
+        }}
+      >
         {label}
       </Text>
       <TextInput
         style={{
-          borderWidth: 1,
-          borderColor: c.border,
-          borderRadius: 10,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
           paddingHorizontal: 10,
           paddingVertical: 10,
           color: c.text,
-          fontSize: 14,
-          backgroundColor: c.background,
+          fontFamily: FONT.mono,
+          fontSize: 15,
+          fontWeight: "700",
+          backgroundColor: c.surface,
         }}
         value={value}
         onChangeText={(t) => onChangeText(t.replace(/[^0-9.]/g, ""))}
@@ -146,16 +189,31 @@ interface RowLineProps {
   label: string;
   value: string;
   bold?: boolean;
-  colors: ReturnType<typeof useColors>;
 }
 
-function RowLine({ label, value, bold, colors: c }: RowLineProps) {
+function RowLine({ label, value, bold }: RowLineProps) {
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 2 }}>
-      <Text style={{ fontSize: 12, fontWeight: bold ? "800" : "500", color: bold ? c.text : c.textTertiary }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 }}>
+      <Text
+        style={{
+          fontFamily: bold ? FONT.display : FONT.body,
+          fontSize: bold ? 14 : 12,
+          fontWeight: bold ? "900" : "500",
+          letterSpacing: bold ? 0.6 : 0,
+          color: palette.ink,
+        }}
+      >
         {label}
       </Text>
-      <Text style={{ fontSize: bold ? 15 : 12, fontWeight: bold ? "800" : "600", color: bold ? c.primary : c.text }}>
+      <Text
+        style={{
+          fontFamily: bold ? FONT.display : FONT.mono,
+          fontSize: bold ? 18 : 12,
+          fontWeight: bold ? "900" : "700",
+          color: bold ? palette.cobalt500 : palette.ink,
+          letterSpacing: bold ? -0.4 : 0,
+        }}
+      >
         {value}
       </Text>
     </View>

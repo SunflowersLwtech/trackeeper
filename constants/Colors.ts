@@ -1,168 +1,182 @@
 /**
- * TracKeeper design token system.
+ * TracKeeper design token system — Soft Brutalist Card.
+ *
+ * Cream paper, ink-black borders, chunky 4px drop-shadow cards,
+ * cobalt primary, tomato + mustard accents, lime + plum status.
+ * Display: Archivo Black. Body: Inter Tight. Mono: JetBrains Mono.
+ *
  * All colors in the app MUST reference this file.
  */
 
 const palette = {
-  // Blue
-  blue50: "#eff6ff",
-  blue100: "#dbeafe",
-  blue300: "#93c5fd",
-  blue500: "#3b82f6",
-  blue700: "#1d4ed8",
-  blue800: "#1e40af",
+  // Cream / paper
+  cream50: "#FAF6EC",
+  cream100: "#F4ECD8", // canvas
+  cream200: "#EAE0C8",
+  cream300: "#D9CCAA",
+  paper: "#FFFEF8", // card surface
+  parchment: "#F8F0DC",
 
-  // Green
-  green50: "#f0fdf4",
-  green500: "#22c55e",
-  green700: "#15803d",
-  green800: "#166534",
+  // Ink (true brutalist black)
+  ink: "#0A0A0A",
+  ink800: "#1A1A1A",
+  ink600: "#3D3D3D",
+  ink500: "#5C544A",
+  ink400: "#857C70",
+  ink300: "#A8A095",
+  ink200: "#CFC8BD",
+  ink100: "#E0D9CC",
 
-  // Red
-  red50: "#fef2f2",
-  red200: "#fecaca",
-  red500: "#ef4444",
-  red700: "#b91c1c",
-  red900: "#991b1b",
+  // Cobalt — primary
+  cobalt50: "#E6E9FF",
+  cobalt300: "#7B8AFF",
+  cobalt500: "#1E3AFF",
+  cobalt700: "#0F1E99",
 
-  // Amber
-  amber50: "#fffbeb",
-  amber100: "#fef3c7",
-  amber500: "#f59e0b",
-  amber800: "#92400e",
+  // Tomato — destructive / high-priority
+  tomato50: "#FFE9E3",
+  tomato300: "#FF9479",
+  tomato500: "#FF4D2E",
+  tomato700: "#B82A11",
 
-  // Violet
-  violet50: "#f5f3ff",
-  violet100: "#f3e8ff",
-  violet300: "#c4b5fd",
-  violet500: "#8b5cf6",
-  violet600: "#7c3aed",
+  // Mustard — warning / in-progress
+  mustard50: "#FFF4D0",
+  mustard300: "#FFD96A",
+  mustard500: "#F4B400",
+  mustard700: "#9C6E00",
 
-  // Neutrals
-  white: "#fff",
-  black: "#000",
-  gray50: "#f9fafb",
-  gray100: "#f3f4f6",
-  gray200: "#e5e7eb",
-  gray300: "#d1d5db",
-  gray400: "#9ca3af",
-  gray500: "#6b7280",
-  gray600: "#4b5563",
-  gray700: "#374151",
-  gray800: "#1f2937",
-  gray900: "#111827",
+  // Lime — success / low-priority
+  lime50: "#E5FBD8",
+  lime300: "#9FE57A",
+  lime500: "#5BD27D",
+  lime700: "#2A8A48",
+
+  // Plum — on-hold / violet roles
+  plum50: "#EFE4FF",
+  plum300: "#B998FF",
+  plum500: "#7C3AED",
+  plum700: "#4C1D95",
+
+  // Sky — info / chat
+  sky50: "#DCF2FF",
+  sky500: "#0EA5E9",
+  sky700: "#0369A1",
+
+  white: "#FFFFFF",
+  black: "#000000",
+  smoke: "#F2F2F2",
 } as const;
 
-/** Semantic light theme */
+/** Soft Brutalist light theme */
 const light = {
   // Backgrounds
-  background: palette.white,
-  surface: palette.gray50,
-  surfaceAlt: palette.gray100,
+  background: palette.cream100,
+  surface: palette.paper,
+  surfaceAlt: palette.cream200,
 
   // Text
-  text: palette.gray900,
-  textSecondary: palette.gray700,
-  textBody: palette.gray600,
-  textTertiary: palette.gray500,
-  textMuted: palette.gray400,
+  text: palette.ink,
+  textSecondary: palette.ink800,
+  textBody: palette.ink600,
+  textTertiary: palette.ink500,
+  textMuted: palette.ink400,
 
-  // Borders
-  border: palette.gray300,
-  borderLight: palette.gray200,
+  // Borders — brutalist hard ink lines
+  border: palette.ink,
+  borderLight: palette.ink200,
 
-  // Primary
-  primary: palette.blue500,
-  primaryLight: palette.blue300,
-  primaryBg: palette.blue50,
-  primaryDark: palette.blue700,
-  primaryBadgeBg: palette.blue100,
+  // Primary — cobalt
+  primary: palette.cobalt500,
+  primaryLight: palette.cobalt300,
+  primaryBg: palette.cobalt50,
+  primaryDark: palette.cobalt700,
+  primaryBadgeBg: palette.cobalt50,
 
-  // Success
-  success: palette.green500,
-  successBg: palette.green50,
-  successTextDark: palette.green800,
-  successTextMedium: palette.green700,
+  // Success — lime
+  success: palette.lime500,
+  successBg: palette.lime50,
+  successTextDark: palette.lime700,
+  successTextMedium: palette.lime700,
 
-  // Error / Destructive
-  error: palette.red500,
-  errorBg: palette.red50,
-  errorBorder: palette.red200,
-  errorTextDark: palette.red900,
-  errorTextMedium: palette.red700,
+  // Error / Destructive — tomato
+  error: palette.tomato500,
+  errorBg: palette.tomato50,
+  errorBorder: palette.tomato300,
+  errorTextDark: palette.tomato700,
+  errorTextMedium: palette.tomato700,
 
-  // Warning
-  warning: palette.amber500,
-  warningBg: palette.amber50,
-  warningBadgeBg: palette.amber100,
-  warningTextDark: palette.amber800,
+  // Warning — mustard
+  warning: palette.mustard500,
+  warningBg: palette.mustard50,
+  warningBadgeBg: palette.mustard300,
+  warningTextDark: palette.mustard700,
 
-  // Violet (on hold / maintainer)
-  violet: palette.violet500,
-  violetDark: palette.violet600,
-  violetBg: palette.violet50,
-  violetBadgeBg: palette.violet100,
-  violetBorder: palette.violet300,
+  // Violet / on-hold — plum
+  violet: palette.plum500,
+  violetDark: palette.plum700,
+  violetBg: palette.plum50,
+  violetBadgeBg: palette.plum300,
+  violetBorder: palette.plum500,
 
   // Tint (legacy compat)
-  tint: palette.blue500,
-  tabIconDefault: palette.gray400,
-  tabIconSelected: palette.blue500,
+  tint: palette.cobalt500,
+  tabIconDefault: palette.ink400,
+  tabIconSelected: palette.cobalt500,
 
   // Overlay
-  overlay: "rgba(0,0,0,0.4)",
+  overlay: "rgba(10,10,10,0.55)",
 } as const;
 
 export type ThemeColors = { [K in keyof typeof light]: string };
 
-/** Semantic dark theme */
+/** Soft Brutalist dark theme — inverted ink canvas with same accents */
 const dark: ThemeColors = {
-  background: palette.gray900,
-  surface: palette.gray800,
-  surfaceAlt: palette.gray700,
+  background: "#11100D",
+  surface: "#1B1A16",
+  surfaceAlt: "#26241F",
 
-  text: palette.gray50,
-  textSecondary: palette.gray300,
-  textBody: palette.gray400,
-  textTertiary: palette.gray500,
-  textMuted: palette.gray500,
+  text: palette.cream50,
+  textSecondary: palette.cream100,
+  textBody: palette.ink200,
+  textTertiary: palette.ink300,
+  textMuted: palette.ink400,
 
-  border: palette.gray700,
-  borderLight: palette.gray600,
+  border: palette.cream100,
+  borderLight: palette.ink600,
 
-  primary: palette.blue500,
-  primaryLight: palette.blue300,
-  primaryBg: "#1e293b",
-  primaryDark: palette.blue300,
-  primaryBadgeBg: "#1e3a5f",
+  primary: palette.cobalt300,
+  primaryLight: palette.cobalt500,
+  primaryBg: "#0F1335",
+  primaryDark: palette.cobalt300,
+  primaryBadgeBg: "#1A1F4D",
 
-  success: palette.green500,
-  successBg: "#052e16",
-  successTextDark: palette.green500,
-  successTextMedium: palette.green500,
+  success: palette.lime300,
+  successBg: "#0E2818",
+  successTextDark: palette.lime300,
+  successTextMedium: palette.lime300,
 
-  error: palette.red500,
-  errorBg: "#450a0a",
-  errorBorder: "#7f1d1d",
-  errorTextDark: palette.red500,
-  errorTextMedium: palette.red500,
+  error: palette.tomato300,
+  errorBg: "#3A130A",
+  errorBorder: palette.tomato500,
+  errorTextDark: palette.tomato300,
+  errorTextMedium: palette.tomato300,
 
-  warning: palette.amber500,
-  warningBg: "#451a03",
-  warningBadgeBg: "#78350f",
-  warningTextDark: palette.amber500,
+  warning: palette.mustard300,
+  warningBg: "#2E1F00",
+  warningBadgeBg: palette.mustard500,
+  warningTextDark: palette.mustard300,
 
-  violet: palette.violet500,
-  violetDark: palette.violet300,
-  violetBg: "#2e1065",
-  violetBadgeBg: "#3b0764",
-  violetBorder: palette.violet500,
+  violet: palette.plum300,
+  violetDark: palette.plum300,
+  violetBg: "#1F0E3D",
+  violetBadgeBg: palette.plum500,
+  violetBorder: palette.plum300,
 
-  tint: palette.blue500,
-  tabIconDefault: palette.gray500,
-  tabIconSelected: palette.blue500,
+  tint: palette.cobalt300,
+  tabIconDefault: palette.ink400,
+  tabIconSelected: palette.cobalt300,
 
-  overlay: "rgba(0,0,0,0.6)",
+  overlay: "rgba(0,0,0,0.7)",
 };
 
 const Colors = { light, dark } as const;

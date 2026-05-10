@@ -1,7 +1,16 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { RequestCard } from "@/components/request/RequestCard";
-import { MaintenanceRequest } from "@/types";
+import type { MaintenanceRequest } from "@/types";
+
+jest.mock("firebase/firestore", () => ({
+  Timestamp: {
+    fromDate: (date: Date) => ({
+      toDate: () => date,
+      toMillis: () => date.getTime(),
+    }),
+  },
+}));
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",

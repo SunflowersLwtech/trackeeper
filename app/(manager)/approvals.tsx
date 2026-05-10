@@ -18,8 +18,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { approveTenant, rejectTenant } from "@/services/approvals";
 import { showSuccess, showError } from "@/utils/toast";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
 import { WebContainer } from "@/components/ui/WebContainer";
-import { withOpacity } from "@/utils/color";
 import { User } from "@/types";
 
 export default function ApprovalsScreen() {
@@ -72,35 +73,57 @@ export default function ApprovalsScreen() {
     <WebContainer>
       <Stack.Screen options={{ title: "Tenant Approvals" }} />
       <View style={{ flex: 1, backgroundColor: c.background }}>
-        {/* Header banner */}
+        {/* Brutalist banner */}
         <View
           style={{
             margin: 16,
             padding: 16,
-            borderRadius: 16,
-            backgroundColor: c.primaryBg,
+            backgroundColor: palette.cobalt500,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
             flexDirection: "row",
             alignItems: "center",
+            ...SHADOW_MD,
           }}
         >
           <View
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              backgroundColor: c.primary,
+              width: 56,
+              height: 56,
+              backgroundColor: palette.mustard500,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="people-circle-outline" size={26} color={c.background} />
+            <Text
+              style={{
+                fontFamily: FONT.display,
+                fontSize: 24,
+                fontWeight: "900",
+                color: palette.ink,
+                letterSpacing: -1,
+              }}
+            >
+              {tenants.length}
+            </Text>
           </View>
           <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: c.text }}>
-              {tenants.length} pending {tenants.length === 1 ? "request" : "requests"}
+            <Text
+              style={{
+                fontFamily: FONT.display,
+                fontSize: 15,
+                fontWeight: "900",
+                color: palette.paper,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+              }}
+            >
+              Pending {tenants.length === 1 ? "request" : "requests"}
             </Text>
-            <Text style={{ fontSize: 12, color: c.textTertiary, marginTop: 2 }}>
-              Verify the tenant by their unit number before approving.
+            <Text style={{ fontFamily: FONT.body, fontSize: 12, color: palette.paper, marginTop: 4, opacity: 0.9 }}>
+              Verify by unit number before approving.
             </Text>
           </View>
         </View>
@@ -118,11 +141,34 @@ export default function ApprovalsScreen() {
           refreshControl={<RefreshControl refreshing={false} onRefresh={() => {}} tintColor={c.primary} />}
           ListEmptyComponent={
             <View style={{ alignItems: "center", paddingVertical: 60 }}>
-              <Ionicons name="checkmark-done-circle-outline" size={64} color={c.borderLight} />
-              <Text style={{ fontSize: 15, fontWeight: "600", color: c.textMuted, marginTop: 12 }}>
-                Inbox zero — no pending tenants
+              <View
+                style={{
+                  width: 80,
+                  height: 80,
+                  backgroundColor: palette.lime500,
+                  borderWidth: BORDER.heavy,
+                  borderColor: palette.ink,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...SHADOW_MD,
+                }}
+              >
+                <Ionicons name="checkmark-done" size={36} color={palette.ink} />
+              </View>
+              <Text
+                style={{
+                  fontFamily: FONT.display,
+                  fontSize: 16,
+                  fontWeight: "900",
+                  color: c.text,
+                  marginTop: 18,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                }}
+              >
+                Inbox zero
               </Text>
-              <Text style={{ fontSize: 12, color: c.textMuted, marginTop: 4 }}>
+              <Text style={{ fontFamily: FONT.body, fontSize: 13, color: c.textBody, marginTop: 8, textAlign: "center", maxWidth: 280 }}>
                 New tenant registrations will appear here.
               </Text>
             </View>
@@ -133,57 +179,75 @@ export default function ApprovalsScreen() {
             return (
               <View
                 style={{
-                  backgroundColor: c.background,
-                  borderWidth: 1,
-                  borderColor: c.borderLight,
-                  borderRadius: 16,
+                  backgroundColor: c.surface,
+                  borderWidth: BORDER.base,
+                  borderColor: palette.ink,
                   padding: 14,
-                  marginBottom: 12,
-                  shadowColor: c.text,
-                  shadowOpacity: 0.04,
-                  shadowRadius: 6,
-                  shadowOffset: { width: 0, height: 2 },
-                  elevation: 1,
+                  marginBottom: 14,
+                  ...SHADOW_MD,
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <View
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 14,
-                      backgroundColor: withOpacity(c.primary, 0.16),
+                      width: 52,
+                      height: 52,
+                      backgroundColor: palette.cobalt500,
+                      borderWidth: BORDER.base,
+                      borderColor: palette.ink,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ fontSize: 18, fontWeight: "800", color: c.primary }}>{initial}</Text>
+                    <Text
+                      style={{
+                        fontFamily: FONT.display,
+                        fontSize: 22,
+                        fontWeight: "900",
+                        color: palette.paper,
+                      }}
+                    >
+                      {initial}
+                    </Text>
                   </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: c.text }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: c.textTertiary, marginTop: 2 }}>{item.email}</Text>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={{ fontFamily: FONT.display, fontSize: 16, fontWeight: "900", color: c.text, letterSpacing: -0.2 }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ fontFamily: FONT.mono, fontSize: 11, color: c.textBody, marginTop: 3, letterSpacing: 0.3 }}>
+                      {item.email}
+                    </Text>
                   </View>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: c.warningBg }}>
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: c.warningTextDark }}>PENDING</Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      backgroundColor: palette.mustard500,
+                      borderWidth: BORDER.base,
+                      borderColor: palette.ink,
+                    }}
+                  >
+                    <Text style={{ fontFamily: FONT.display, fontSize: 10, fontWeight: "900", color: palette.ink, letterSpacing: 0.6 }}>
+                      PENDING
+                    </Text>
                   </View>
                 </View>
 
-                <View style={{ flexDirection: "row", marginTop: 12 }}>
-                  <DetailLine icon="home-outline" label="Unit" value={item.unitNumber || "—"} colors={c} />
-                  <DetailLine icon="call-outline" label="Phone" value={item.phone || "—"} colors={c} />
+                <View style={{ flexDirection: "row", marginTop: 14, gap: 12 }}>
+                  <DetailLine icon="home" label="UNIT" value={item.unitNumber || "—"} />
+                  <DetailLine icon="call" label="PHONE" value={item.phone || "—"} />
                 </View>
 
-                <View style={{ flexDirection: "row", marginTop: 14 }}>
+                <View style={{ flexDirection: "row", marginTop: 16, gap: 10 }}>
                   <TouchableOpacity
                     style={{
                       flex: 1,
-                      borderWidth: 1,
-                      borderColor: c.errorBorder,
-                      borderRadius: 12,
+                      borderWidth: BORDER.base,
+                      borderColor: palette.ink,
                       paddingVertical: 12,
                       alignItems: "center",
-                      marginRight: 8,
-                      backgroundColor: c.errorBg,
+                      backgroundColor: c.surface,
+                      ...SHADOW_SM,
                     }}
                     onPress={() => setRejectingTenant(item)}
                     disabled={busy}
@@ -191,17 +255,21 @@ export default function ApprovalsScreen() {
                     accessibilityLabel={`Reject ${item.name}`}
                     testID={`reject-tenant-${item.uid}`}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: c.error }}>Reject</Text>
+                    <Text style={{ fontFamily: FONT.display, fontSize: 13, fontWeight: "900", color: palette.tomato500, letterSpacing: 0.6, textTransform: "uppercase" }}>
+                      Reject
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={{
                       flex: 1,
-                      backgroundColor: busy ? c.primaryLight : c.primary,
-                      borderRadius: 12,
+                      backgroundColor: busy ? palette.lime300 : palette.lime500,
+                      borderWidth: BORDER.base,
+                      borderColor: palette.ink,
                       paddingVertical: 12,
                       alignItems: "center",
                       flexDirection: "row",
                       justifyContent: "center",
+                      ...SHADOW_SM,
                     }}
                     onPress={() => handleApprove(item)}
                     disabled={busy}
@@ -210,11 +278,11 @@ export default function ApprovalsScreen() {
                     testID={`approve-tenant-${item.uid}`}
                   >
                     {busy ? (
-                      <ActivityIndicator color={c.background} size="small" />
+                      <ActivityIndicator color={palette.ink} size="small" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark" size={16} color={c.background} />
-                        <Text style={{ fontSize: 13, fontWeight: "700", color: c.background, marginLeft: 6 }}>
+                        <Ionicons name="checkmark" size={18} color={palette.ink} />
+                        <Text style={{ fontFamily: FONT.display, fontSize: 13, fontWeight: "900", color: palette.ink, marginLeft: 6, letterSpacing: 0.6, textTransform: "uppercase" }}>
                           Approve
                         </Text>
                       </>
@@ -237,24 +305,44 @@ export default function ApprovalsScreen() {
             style={{ flex: 1, backgroundColor: c.overlay, justifyContent: "center", paddingHorizontal: 24 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <View style={{ backgroundColor: c.background, borderRadius: 16, padding: 20 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: c.text }}>
+            <View
+              style={{
+                backgroundColor: c.surface,
+                borderWidth: BORDER.heavy,
+                borderColor: palette.ink,
+                padding: 22,
+                ...SHADOW_MD,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: FONT.display,
+                  fontSize: 18,
+                  fontWeight: "900",
+                  color: c.text,
+                  letterSpacing: -0.2,
+                  textTransform: "uppercase",
+                }}
+              >
                 Reject {rejectingTenant?.name}?
               </Text>
-              <Text style={{ fontSize: 13, color: c.textTertiary, marginTop: 6 }}>
+              <View style={{ height: BORDER.base, backgroundColor: palette.tomato500, width: 36, marginVertical: 10 }} />
+              <Text style={{ fontFamily: FONT.body, fontSize: 13, color: c.textBody, lineHeight: 18 }}>
                 Optionally include a reason — the tenant will see this in their notification.
               </Text>
               <TextInput
                 style={{
-                  marginTop: 14,
-                  borderWidth: 1,
-                  borderColor: c.border,
-                  borderRadius: 12,
+                  marginTop: 16,
+                  borderWidth: BORDER.base,
+                  borderColor: palette.ink,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   color: c.text,
-                  minHeight: 80,
+                  fontFamily: FONT.body,
+                  fontSize: 14,
+                  minHeight: 92,
                   textAlignVertical: "top",
+                  backgroundColor: c.background,
                 }}
                 placeholder="e.g. Unit number does not match our records"
                 placeholderTextColor={c.textMuted}
@@ -263,9 +351,16 @@ export default function ApprovalsScreen() {
                 multiline
                 accessibilityLabel="Rejection reason"
               />
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 16 }}>
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 18, gap: 10 }}>
                 <TouchableOpacity
-                  style={{ paddingHorizontal: 16, paddingVertical: 10, marginRight: 8 }}
+                  style={{
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    borderWidth: BORDER.base,
+                    borderColor: palette.ink,
+                    backgroundColor: c.surface,
+                    ...SHADOW_SM,
+                  }}
                   onPress={() => {
                     setRejectingTenant(null);
                     setRejectReason("");
@@ -273,21 +368,27 @@ export default function ApprovalsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Cancel rejection"
                 >
-                  <Text style={{ color: c.textTertiary, fontWeight: "600" }}>Cancel</Text>
+                  <Text style={{ color: palette.ink, fontFamily: FONT.display, fontSize: 12, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    backgroundColor: c.error,
-                    borderRadius: 10,
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    backgroundColor: palette.tomato500,
+                    borderWidth: BORDER.base,
+                    borderColor: palette.ink,
+                    ...SHADOW_SM,
                   }}
                   onPress={submitReject}
                   accessibilityRole="button"
                   accessibilityLabel="Confirm rejection"
                   testID="confirm-reject-button"
                 >
-                  <Text style={{ color: c.background, fontWeight: "700" }}>Reject</Text>
+                  <Text style={{ color: palette.paper, fontFamily: FONT.display, fontSize: 12, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                    Reject
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -302,15 +403,28 @@ interface DetailLineProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
-  colors: ReturnType<typeof useColors>;
 }
 
-function DetailLine({ icon, label, value, colors: c }: DetailLineProps) {
+function DetailLine({ icon, label, value }: DetailLineProps) {
   return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-      <Ionicons name={icon} size={14} color={c.textTertiary} />
-      <Text style={{ fontSize: 11, color: c.textTertiary, marginLeft: 4 }}>
-        {label}: <Text style={{ color: c.text, fontWeight: "600" }}>{value}</Text>
+    <View
+      style={{
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderWidth: 1.5,
+        borderColor: palette.ink,
+        backgroundColor: palette.cream100,
+      }}
+    >
+      <Ionicons name={icon} size={13} color={palette.ink} />
+      <Text style={{ fontFamily: FONT.display, fontSize: 9, color: palette.ink, marginLeft: 4, letterSpacing: 0.6 }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: FONT.mono, fontSize: 11, color: palette.ink, marginLeft: 6, fontWeight: "700" }}>
+        {value}
       </Text>
     </View>
   );

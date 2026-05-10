@@ -13,9 +13,19 @@ import { useLocalSearchParams, Stack } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useRequest } from "@/hooks/useRequest";
 import { useMessages } from "@/hooks/useMessages";
-import { startWork, completeRequest, putOnHold, resumeRequest } from "@/services/requests";
+import {
+  startWork,
+  completeRequest,
+  putOnHold,
+  resumeRequest,
+  scheduleRequest,
+  setEstimatedArrival,
+  markMaintainerArrived,
+} from "@/services/requests";
+import { DateTimePickerSheet } from "@/components/ui/DateTimePickerSheet";
 import { sendMessage } from "@/services/messages";
-import { uploadChatImage } from "@/services/chatStorage";
+import { uploadChatImage, uploadChatImages } from "@/services/chatStorage";
+import { MessageReplyTo } from "@/types";
 import { StatusTimeline } from "@/components/request/StatusTimeline";
 import { StatusHistory } from "@/components/request/StatusHistory";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
@@ -26,6 +36,10 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useColors } from "@/hooks/useColors";
 import { withOpacity } from "@/utils/color";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_SM } from "@/constants/Brutalism";
+import { getRequestImages } from "@/utils/images";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 
 export default function MaintainerTaskDetailScreen() {
   const c = useColors();
@@ -41,6 +55,12 @@ export default function MaintainerTaskDetailScreen() {
   } = useMessages(id, { currentUserId: user?.uid, currentUserName: user?.name });
   const [updating, setUpdating] = useState(false);
   const { confirm, confirmProps } = useConfirm();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [etaSpecificOpen, setEtaSpecificOpen] = useState(false);
+  const [etaWindowStartOpen, setEtaWindowStartOpen] = useState(false);
+  const [etaWindowEndOpen, setEtaWindowEndOpen] = useState(false);
+  const [etaWindowStart, setEtaWindowStart] = useState<Date | null>(null);
+  const [etaMode, setEtaMode] = useState<"specific" | "window" | null>(null);
 
   const tenantId = request?.tenantId;
   const jobTitle = request?.title;
@@ -93,6 +113,59 @@ export default function MaintainerTaskDetailScreen() {
     });
   };
 
+  const handleSchedule = async (date: Date) => {
+    if (!request || !id || !user) return;
+    setUpdating(true);
+    try {
+      await scheduleRequest(id, date, user.uid, user.name, "maintainer");
+      showSuccess("Scheduled", `Set for ${date.toLocaleString()}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to schedule";
+      showError("Schedule failed", msg);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleEtaSpecific = async (date: Date) => {
+    if (!id || !user) return;
+    try {
+      await setEstimatedArrival(id, user.uid, user.name, { at: date });
+      showSuccess("ETA set", `Arriving ${date.toLocaleString()}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      showError("ETA failed", msg);
+    }
+  };
+
+  const handleEtaWindow = async (start: Date, end: Date) => {
+    if (!id || !user) return;
+    if (end.getTime() <= start.getTime()) {
+      showError("Invalid window", "End time must be after start time.");
+      return;
+    }
+    try {
+      await setEstimatedArrival(id, user.uid, user.name, { window: { start, end } });
+      showSuccess("ETA window set", `${start.toLocaleString()} – ${end.toLocaleTimeString()}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      showError("ETA failed", msg);
+    }
+  };
+
+  const handleArrived = () => {
+    if (!id || !user) return;
+    confirm("Mark arrived", "Confirm you are on-site now?", async () => {
+      try {
+        await markMaintainerArrived(id, user.uid);
+        showSuccess("Arrived", "Tenant has been notified.");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed";
+        showError("Error", msg);
+      }
+    });
+  };
+
   const handleResume = () => {
     if (!request || !id || !user) return;
     confirm("Resume task", "Continue work?", async () => {
@@ -109,14 +182,18 @@ export default function MaintainerTaskDetailScreen() {
     });
   };
 
-  const handleSend = async (text: string, imageUri?: string) => {
+  const handleSend = async (
+    text: string,
+    imageUris?: string[],
+    options?: { replyTo?: MessageReplyTo },
+  ) => {
     if (!id || !user) return;
     try {
-      let imageUrl: string | undefined;
-      if (imageUri) {
-        imageUrl = await uploadChatImage(imageUri, id);
+      let imageUrls: string[] | undefined;
+      if (imageUris && imageUris.length > 0) {
+        imageUrls = await uploadChatImages(imageUris, id);
       }
-      await sendMessage(id, user.uid, user.name, text, imageUrl);
+      await sendMessage(id, user.uid, user.name, text, imageUrls, options);
       setTyping(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to send message";
@@ -168,20 +245,93 @@ export default function MaintainerTaskDetailScreen() {
           {request.description}
         </Text>
 
-        {request.imageUrl && (
-          <Image source={{ uri: request.imageUrl }} style={{ width: "100%", height: 180, borderRadius: 14, marginTop: 12 }} resizeMode="cover" />
-        )}
+        {(() => {
+          const imgs = getRequestImages(request);
+          return imgs.length > 0 ? (
+            <View style={{ marginTop: 12 }}>
+              <ImageGallery uris={imgs} layout="horizontal" thumbSize={120} testIDPrefix="maintainer-request-image" />
+            </View>
+          ) : null;
+        })()}
+
+        {/* Scheduled banner */}
+        {request.scheduledFor ? (
+          <View
+            style={{
+              marginTop: 14,
+              padding: 12,
+              backgroundColor: palette.sky50,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              flexDirection: "row",
+              alignItems: "center",
+              ...SHADOW_SM,
+            }}
+            testID="maintainer-scheduled-banner"
+          >
+            <Ionicons name="calendar-outline" size={18} color={palette.ink} />
+            <Text style={{ marginLeft: 10, fontFamily: FONT.body, fontSize: 13, color: palette.ink, flex: 1 }}>
+              Scheduled for {request.scheduledFor.toDate().toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* ETA banner */}
+        {request.eta ? (
+          <View
+            style={{
+              marginTop: 12,
+              padding: 12,
+              backgroundColor: palette.mustard50,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              ...SHADOW_SM,
+            }}
+            testID="maintainer-eta-banner"
+          >
+            <Text style={{ fontFamily: FONT.display, fontSize: 11, fontWeight: "900", color: palette.ink, letterSpacing: 0.6, textTransform: "uppercase" }}>
+              ◼ ETA
+            </Text>
+            <Text style={{ marginTop: 4, fontFamily: FONT.body, fontSize: 13, color: palette.ink }}>
+              {request.eta.estimatedArrivalAt
+                ? `Arriving ${request.eta.estimatedArrivalAt.toDate().toLocaleString()}`
+                : request.eta.estimatedArrivalWindow
+                  ? `${request.eta.estimatedArrivalWindow.start.toDate().toLocaleString()} – ${request.eta.estimatedArrivalWindow.end.toDate().toLocaleTimeString()}`
+                  : "Set"}
+            </Text>
+            {request.eta.actualArrivalAt && (
+              <Text style={{ marginTop: 2, fontFamily: FONT.mono, fontSize: 10, color: palette.lime700 }}>
+                On site since {request.eta.actualArrivalAt.toDate().toLocaleTimeString()}
+              </Text>
+            )}
+          </View>
+        ) : null}
 
         {/* Action Buttons */}
         <View style={{ marginTop: 18 }}>
           {request.status === "assigned" && (
             <>
+              <ActionButton onPress={() => setScheduleOpen(true)} updating={updating} label="Schedule appointment" tint={palette.sky500} icon="calendar" colors={c} testID="maintainer-schedule-button" />
               <ActionButton onPress={handleAccept} updating={updating} label="Accept task" tint={getStatusColor("in_progress")} icon="play" colors={c} testID="accept-task-button" />
+              <ActionButton onPress={handleHold} updating={updating} label="Put on hold" tint={getStatusColor("on_hold")} icon="pause" colors={c} testID="put-on-hold-button" />
+            </>
+          )}
+          {request.status === "scheduled" && (
+            <>
+              <ActionButton onPress={() => setScheduleOpen(true)} updating={updating} label="Reschedule" tint={palette.sky500} icon="calendar" colors={c} testID="maintainer-schedule-button" />
+              <ActionButton onPress={() => { setEtaMode("specific"); setEtaSpecificOpen(true); }} updating={updating} label="Set ETA — specific time" tint={palette.mustard500} icon="time" colors={c} testID="maintainer-eta-specific-button" />
+              <ActionButton onPress={() => { setEtaMode("window"); setEtaWindowStartOpen(true); }} updating={updating} label="Set ETA — time window" tint={palette.mustard500} icon="hourglass" colors={c} testID="maintainer-eta-window-button" />
+              <ActionButton onPress={handleArrived} updating={updating} label="I've arrived" tint={palette.lime500} icon="location" colors={c} testID="maintainer-arrived-button" />
+              <ActionButton onPress={handleAccept} updating={updating} label="Start work" tint={getStatusColor("in_progress")} icon="play" colors={c} testID="start-work-button" />
               <ActionButton onPress={handleHold} updating={updating} label="Put on hold" tint={getStatusColor("on_hold")} icon="pause" colors={c} testID="put-on-hold-button" />
             </>
           )}
           {request.status === "in_progress" && (
             <>
+              <ActionButton onPress={() => { setEtaMode("specific"); setEtaSpecificOpen(true); }} updating={updating} label="Update ETA" tint={palette.mustard500} icon="time" colors={c} testID="maintainer-eta-specific-button" />
+              {!request.eta?.actualArrivalAt && (
+                <ActionButton onPress={handleArrived} updating={updating} label="I've arrived" tint={palette.lime500} icon="location" colors={c} testID="maintainer-arrived-button" />
+              )}
               <ActionButton onPress={handleComplete} updating={updating} label="Mark complete" tint={getStatusColor("completed")} icon="checkmark-circle" colors={c} testID="mark-complete-button" />
               <ActionButton onPress={handleHold} updating={updating} label="Put on hold" tint={getStatusColor("on_hold")} icon="pause" colors={c} testID="put-on-hold-button" />
             </>
@@ -248,9 +398,64 @@ export default function MaintainerTaskDetailScreen() {
         )}
       </ScrollView>
 
+      {/* Schedule picker */}
+      <DateTimePickerSheet
+        visible={scheduleOpen}
+        initial={request.scheduledFor ? request.scheduledFor.toDate() : undefined}
+        minimumDate={new Date()}
+        title={request.status === "scheduled" ? "Reschedule" : "Schedule appointment"}
+        onClose={() => setScheduleOpen(false)}
+        onConfirm={handleSchedule}
+        testID="maintainer-schedule-picker"
+      />
+
+      {/* ETA - specific time */}
+      <DateTimePickerSheet
+        visible={etaSpecificOpen}
+        initial={request.eta?.estimatedArrivalAt?.toDate()}
+        minimumDate={new Date()}
+        title="Set ETA — arrival time"
+        onClose={() => setEtaSpecificOpen(false)}
+        onConfirm={(date) => handleEtaSpecific(date)}
+        testID="maintainer-eta-specific-picker"
+      />
+
+      {/* ETA - window: pick start, then end */}
+      <DateTimePickerSheet
+        visible={etaWindowStartOpen}
+        initial={request.eta?.estimatedArrivalWindow?.start?.toDate()}
+        minimumDate={new Date()}
+        title="ETA window — start"
+        onClose={() => setEtaWindowStartOpen(false)}
+        onConfirm={(date) => {
+          setEtaWindowStart(date);
+          setEtaWindowEndOpen(true);
+        }}
+        testID="maintainer-eta-window-start-picker"
+      />
+      <DateTimePickerSheet
+        visible={etaWindowEndOpen}
+        initial={
+          etaWindowStart
+            ? new Date(etaWindowStart.getTime() + 60 * 60 * 1000)
+            : request.eta?.estimatedArrivalWindow?.end?.toDate()
+        }
+        minimumDate={etaWindowStart ?? new Date()}
+        title="ETA window — end"
+        onClose={() => setEtaWindowEndOpen(false)}
+        onConfirm={(end) => {
+          if (etaWindowStart) {
+            handleEtaWindow(etaWindowStart, end);
+            setEtaWindowStart(null);
+          }
+        }}
+        testID="maintainer-eta-window-end-picker"
+      />
+
       <ChatFAB
         messages={messages}
         currentUserId={user?.uid ?? ""}
+        currentUserRole={user?.role}
         loading={messagesLoading}
         error={messagesError}
         onSend={handleSend}

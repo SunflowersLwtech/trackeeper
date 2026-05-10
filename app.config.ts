@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "trackeeper",
   slug: "trackeeper",
+  plugins: [...(config.plugins ?? []), "@react-native-community/datetimepicker"],
   extra: {
     FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
     FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN,

@@ -1,10 +1,17 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { useMaintainerRequests } from "@/hooks/useMaintainerRequests";
+import { resetOnboarding } from "@/services/onboarding";
+import { router } from "expo-router";
+import { showError } from "@/utils/toast";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD } from "@/constants/Brutalism";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { WebContainer } from "@/components/ui/WebContainer";
+import { TutorialAction } from "@/components/profile/TutorialAction";
 
 export default function MaintainerProfileScreen() {
   const c = useColors();
@@ -27,65 +34,140 @@ export default function MaintainerProfileScreen() {
       : null;
 
   const stats = [
-    { label: "Assigned", count: assignedCount, color: c.primary },
-    { label: "In Progress", count: inProgressCount, color: c.warning },
-    { label: "On Hold", count: onHoldCount, color: c.violet },
-    { label: "Completed", count: completedCount, color: c.success },
-    { label: "Total Tasks", count: requests.length, color: c.text },
+    { label: "Assigned", count: assignedCount, color: palette.cobalt500 },
+    { label: "In Progress", count: inProgressCount, color: palette.mustard500 },
+    { label: "On Hold", count: onHoldCount, color: palette.plum500 },
+    { label: "Completed", count: completedCount, color: palette.lime500 },
+    { label: "Total", count: requests.length, color: palette.ink },
   ];
 
   return (
-    <View className="flex-1 px-6 pt-8" style={{ backgroundColor: c.background }}>
-      {/* Avatar */}
-      <View className="items-center mb-6">
-        <View
-          className="w-20 h-20 rounded-full items-center justify-center mb-3"
-          style={{ backgroundColor: c.violetBadgeBg }}
-        >
-          <Text className="text-3xl font-bold" style={{ color: c.violetDark }}>
-            {user?.name?.charAt(0)?.toUpperCase()}
+    <WebContainer>
+      <ScrollView style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}>
+        <View style={{ alignItems: "center", marginBottom: 28 }}>
+          <View
+            style={{
+              width: 96,
+              height: 96,
+              backgroundColor: palette.tomato500,
+              borderWidth: BORDER.heavy,
+              borderColor: palette.ink,
+              alignItems: "center",
+              justifyContent: "center",
+              ...SHADOW_MD,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: FONT.display,
+                fontSize: 48,
+                fontWeight: "900",
+                color: palette.paper,
+                letterSpacing: 0,
+              }}
+            >
+              {user?.name?.charAt(0)?.toUpperCase()}
+            </Text>
+          </View>
+          <Text
+            style={{
+              marginTop: 16,
+              fontFamily: FONT.display,
+              fontSize: 24,
+              fontWeight: "900",
+              color: c.text,
+              letterSpacing: 0,
+            }}
+          >
+            {user?.name}
           </Text>
+          <Text style={{ marginTop: 4, fontFamily: FONT.mono, fontSize: 12, color: c.textBody, letterSpacing: 0.3 }}>
+            {user?.email}
+          </Text>
+          <View
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              backgroundColor: palette.tomato500,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+            }}
+          >
+            <Text style={{ fontFamily: FONT.display, fontSize: 11, fontWeight: "900", color: palette.paper, letterSpacing: 1.4 }}>
+              MAINTAINER
+            </Text>
+          </View>
         </View>
-        <Text className="text-xl font-semibold" style={{ color: c.text }}>
-          {user?.name}
-        </Text>
-        <Text className="text-sm" style={{ color: c.textTertiary }}>{user?.email}</Text>
-        <View className="mt-2 px-3 py-1 rounded-full" style={{ backgroundColor: c.violetBadgeBg }}>
-          <Text className="text-xs font-medium" style={{ color: c.violetDark }}>MAINTAINER</Text>
-        </View>
-      </View>
 
-      {/* Work Overview */}
-      <View className="rounded-xl p-4 mb-4" style={{ backgroundColor: c.surface }}>
-        <Text className="text-sm font-semibold mb-3" style={{ color: c.textSecondary }}>
-          Work Overview
-        </Text>
-        <View className="flex-row flex-wrap">
-          {stats.map((s) => (
-            <View key={s.label} className="w-1/2 mb-3">
-              <Text className="text-lg font-bold" style={{ color: s.color }}>{s.count}</Text>
-              <Text className="text-xs" style={{ color: c.textTertiary }}>{s.label}</Text>
-            </View>
-          ))}
-          {avgRating && (
-            <View className="w-1/2 mb-3">
-              <Text className="text-lg font-bold" style={{ color: c.warning }}>{avgRating}</Text>
-              <Text className="text-xs" style={{ color: c.textTertiary }}>Avg Rating</Text>
-            </View>
-          )}
+        <View
+          style={{
+            backgroundColor: c.surface,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            ...SHADOW_MD,
+            marginBottom: 18,
+          }}
+        >
+          <View style={{ paddingHorizontal: 14, paddingVertical: 10, backgroundColor: palette.ink }}>
+            <Text style={{ fontFamily: FONT.display, fontSize: 12, fontWeight: "900", color: palette.paper, letterSpacing: 1, textTransform: "uppercase" }}>
+              ◼ Work overview
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 14 }}>
+            {stats.map((s) => (
+              <StatCell key={s.label} value={s.count} label={s.label} color={s.color} />
+            ))}
+            {avgRating && <StatCell value={avgRating} label="Avg rating" color={palette.mustard500} />}
+          </View>
         </View>
-      </View>
 
-      {/* Sign Out */}
-      <TouchableOpacity
-        className="rounded-xl py-4 items-center"
-        style={{ backgroundColor: c.error }}
-        onPress={() => confirm("Sign Out", "Are you sure you want to sign out?", signOut, { destructive: true })}
-        testID="profile-signout-button"
-      >
-        <Text className="text-white text-base font-semibold">Sign Out</Text>
-      </TouchableOpacity>
-      <ConfirmModal {...confirmProps} />
+        <TutorialAction
+          onPress={async () => {
+            if (!user) return;
+            try {
+              await resetOnboarding(user.uid);
+              router.replace("/onboarding");
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : "Failed";
+              showError("Error", msg);
+            }
+          }}
+        />
+
+        <View style={{ height: 12 }} />
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: palette.tomato500,
+            borderWidth: BORDER.heavy,
+            borderColor: palette.ink,
+            paddingVertical: 16,
+            alignItems: "center",
+            ...SHADOW_MD,
+          }}
+          onPress={() => confirm("Sign Out", "Are you sure you want to sign out?", signOut, { destructive: true })}
+          testID="profile-signout-button"
+        >
+          <Text style={{ color: palette.paper, fontFamily: FONT.display, fontSize: 14, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
+            Sign out
+          </Text>
+        </TouchableOpacity>
+        <ConfirmModal {...confirmProps} />
+      </ScrollView>
+    </WebContainer>
+  );
+}
+
+function StatCell({ value, label, color }: { value: number | string; label: string; color: string }) {
+  return (
+    <View style={{ width: "50%", marginBottom: 12, paddingRight: 8 }}>
+      <Text style={{ fontFamily: FONT.display, fontSize: 26, fontWeight: "900", color, letterSpacing: 0 }}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: FONT.display, fontSize: 10, fontWeight: "900", color: palette.ink, marginTop: 2, letterSpacing: 0.6, textTransform: "uppercase" }}>
+        {label}
+      </Text>
     </View>
   );
 }

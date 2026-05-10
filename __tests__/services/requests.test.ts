@@ -2,6 +2,7 @@ import {
   addDoc,
   updateDoc,
   onSnapshot,
+  getDoc,
 } from "firebase/firestore";
 
 jest.mock("firebase/firestore", () => ({
@@ -55,6 +56,7 @@ import {
   resumeRequest,
   completeRequest,
   subscribeToMaintainerRequests,
+  scheduleRequest,
 } from "@/services/requests";
 
 import { uploadBytesResumable } from "firebase/storage";
@@ -62,13 +64,14 @@ import { uploadBytesResumable } from "firebase/storage";
 const mockAddDoc = addDoc as jest.MockedFunction<typeof addDoc>;
 const mockUpdateDoc = updateDoc as jest.MockedFunction<typeof updateDoc>;
 const mockOnSnapshot = onSnapshot as jest.Mock;
+const mockGetDoc = getDoc as jest.Mock;
 
 const mockUpload = uploadBytesResumable as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
 
 describe("createRequest", () => {
-  it("creates a document with correct fields and auto-suggests a priority", async () => {
+  it("creates a document with correct fields and system-triages a priority", async () => {
     const id = await createRequest({
       title: "Wall scuff",
       description: "Small mark on hallway wall",
@@ -89,6 +92,8 @@ describe("createRequest", () => {
         tenantId: "user-1",
         tenantName: "John",
         imageUrls: [],
+        priorityFactors: [],
+        priorityConfidence: "low",
         titleTokens: expect.arrayContaining(["wall", "scuff"]),
         sla: expect.objectContaining({ priority: "low", totalPausedMs: 0 }),
         statusHistory: [],
@@ -96,10 +101,34 @@ describe("createRequest", () => {
       }),
     );
     const callArgs = mockAddDoc.mock.calls[0][1] as Record<string, unknown>;
-    expect(callArgs.prioritySuggestion).toMatchObject({ priority: "low", source: "auto" });
+    expect(callArgs.prioritySuggestion).toMatchObject({
+      priority: "low",
+      source: "system_triage",
+      confidence: "low",
+    });
   });
 
-  it("auto-detects high priority from emergency keywords", async () => {
+  it("detects high priority from explicit tenant triage factors", async () => {
+    await createRequest({
+      title: "Door lock issue",
+      description: "The main door lock is unreliable and the unit may not be secure",
+      category: "General",
+      tenantId: "user-1",
+      tenantName: "John",
+      triageFactors: ["access_security"],
+    });
+
+    expect(mockAddDoc).toHaveBeenCalledWith(
+      "mock-collection",
+      expect.objectContaining({
+        priority: "high",
+        priorityFactors: ["access_security"],
+        priorityConfidence: "high",
+      }),
+    );
+  });
+
+  it("detects high priority from emergency keywords", async () => {
     await createRequest({
       title: "Emergency",
       description: "Power outage on second floor",
@@ -378,6 +407,62 @@ describe("assignRequest", () => {
   it("throws for invalid source status", async () => {
     await expect(assignRequest("req-1", "in_progress", "m-1", "John", "", "", "mgr-1", "Mgr"))
       .rejects.toThrow("Invalid transition");
+  });
+});
+
+describe("scheduleRequest", () => {
+  it("schedules an assigned request", async () => {
+    const scheduledFor = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        status: "assigned",
+        tenantId: "tenant-1",
+        title: "Leaking pipe",
+      }),
+    });
+
+    await scheduleRequest("req-1", scheduledFor, "mgr-1", "Manager", "manager");
+
+    expect(mockUpdateDoc).toHaveBeenCalledWith("mock-doc-ref", expect.objectContaining({
+      status: "scheduled",
+      scheduledFor: expect.objectContaining({
+        toMillis: expect.any(Function),
+        toDate: expect.any(Function),
+      }),
+    }));
+  });
+
+  it("allows rescheduling an already scheduled request", async () => {
+    const scheduledFor = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        status: "scheduled",
+        tenantId: "tenant-1",
+        title: "Leaking pipe",
+      }),
+    });
+
+    await expect(scheduleRequest("req-1", scheduledFor, "mgr-1", "Manager", "manager")).resolves.toBeUndefined();
+    expect(mockUpdateDoc).toHaveBeenCalledWith("mock-doc-ref", expect.objectContaining({
+      status: "scheduled",
+    }));
+    expect(JSON.stringify(mockUpdateDoc.mock.calls[0][1])).toContain("Rescheduled for");
+  });
+
+  it("rejects scheduling from submitted", async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        status: "submitted",
+        tenantId: "tenant-1",
+        title: "Leaking pipe",
+      }),
+    });
+
+    await expect(scheduleRequest("req-1", new Date(Date.now() + 60 * 60 * 1000), "mgr-1", "Manager", "manager"))
+      .rejects.toThrow("Cannot schedule from submitted");
   });
 });
 

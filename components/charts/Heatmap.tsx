@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Svg, { Rect, Text as SvgText } from "react-native-svg";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER } from "@/constants/Brutalism";
 import { withOpacity } from "@/utils/color";
 
 interface HeatmapProps {
@@ -74,9 +76,11 @@ export function Heatmap({ data, maxValue }: HeatmapProps) {
                   y={y}
                   width={cellWidth}
                   height={cellHeight}
-                  rx={2}
-                  ry={2}
+                  rx={0}
+                  ry={0}
                   fill={fill}
+                  stroke={palette.ink}
+                  strokeWidth={value === 0 ? 0.5 : 1}
                 />
               );
             }),
@@ -130,16 +134,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    marginTop: 8,
+    marginTop: 10,
     gap: 4,
   },
   legendCell: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
+    width: 14,
+    height: 14,
+    borderWidth: 1.5,
+    borderColor: palette.ink,
   },
   legendText: {
+    fontFamily: FONT.display,
     fontSize: 10,
-    fontWeight: "500",
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginHorizontal: 4,
   },
 });

@@ -51,7 +51,7 @@ export function FilterSheet({ visible, onClose, sections, onReset }: FilterSheet
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
         {sections.map((section) => (
           <View key={section.key} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>{section.title}</Text>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>{section.title}</Text>
             <View style={styles.optionsGrid}>
               {section.options.map((opt) => {
                 const isActive = section.selected === opt.value;
@@ -79,14 +79,14 @@ export function FilterSheet({ visible, onClose, sections, onReset }: FilterSheet
                       <Ionicons
                         name={opt.icon}
                         size={14}
-                        color={isActive ? textOnColor : c.textTertiary}
+                        color={isActive ? textOnColor : c.text}
                         style={styles.optionIcon}
                       />
                     )}
                     <Text
                       style={[
                         styles.optionText,
-                        { color: isActive ? textOnColor : c.textBody },
+                        { color: isActive ? textOnColor : c.text },
                         isActive && styles.optionTextActive,
                       ]}
                       numberOfLines={1}

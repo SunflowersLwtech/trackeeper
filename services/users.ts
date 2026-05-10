@@ -10,6 +10,7 @@ import {
 import { db } from "@/config/firebase";
 import { User, UserRole } from "@/types";
 import Constants from "expo-constants";
+import { friendlyErrorMessage } from "@/utils/errorMessages";
 
 const USERS_COLLECTION = "users";
 const extra = Constants.expoConfig?.extra ?? {};
@@ -74,7 +75,7 @@ export async function createStaffUser(input: {
   phone?: string;
 }): Promise<User> {
   if (!API_KEY) {
-    throw new Error("Firebase API key not configured");
+    throw new Error("Staff account creation is not configured on this build.");
   }
 
   // Create Auth account via REST API (does not affect current auth session)
@@ -94,10 +95,7 @@ export async function createStaffUser(input: {
   if (!res.ok) {
     const err = await res.json();
     const code = err?.error?.message ?? "Unknown error";
-    if (code === "EMAIL_EXISTS") {
-      throw new Error("An account with this email already exists");
-    }
-    throw new Error(`Failed to create account: ${code}`);
+    throw new Error(friendlyErrorMessage({ code, message: code }, "Could not create that account. Try again."));
   }
 
   const data = await res.json();
@@ -124,7 +122,7 @@ export async function createStaffUser(input: {
         body: JSON.stringify({ localId: uid }),
       },
     ).catch(() => {});
-    throw error;
+    throw new Error(friendlyErrorMessage(error, "Account was created, but profile setup failed. Try again."));
   }
   return user;
 }

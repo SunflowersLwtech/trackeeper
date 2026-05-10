@@ -14,8 +14,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRequest } from "@/hooks/useRequest";
 import { useMessages } from "@/hooks/useMessages";
 import { sendMessage } from "@/services/messages";
-import { uploadChatImage } from "@/services/chatStorage";
-import { cancelRequest, rateRequest } from "@/services/requests";
+import { uploadChatImage, uploadChatImages } from "@/services/chatStorage";
+import { MessageReplyTo } from "@/types";
+import { cancelRequest, rateRequest, verifyByTenant } from "@/services/requests";
 import { canCancel } from "@/utils/status";
 import { showSuccess, showError } from "@/utils/toast";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -26,6 +27,10 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { ChatFAB } from "@/components/chat/ChatFAB";
 import { RatingStars } from "@/components/request/RatingStars";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, SHADOW_MD, SHADOW_SM } from "@/constants/Brutalism";
+import { getRequestImages } from "@/utils/images";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 
 export default function TenantRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,15 +49,20 @@ export default function TenantRequestDetailScreen() {
   const [pendingRating, setPendingRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
-  const handleSend = async (text: string, imageUri?: string) => {
+  const handleSend = async (
+    text: string,
+    imageUris?: string[],
+    options?: { replyTo?: MessageReplyTo },
+  ) => {
     if (!id || !user) return;
     try {
-      let imageUrl: string | undefined;
-      if (imageUri) {
-        imageUrl = await uploadChatImage(imageUri, id);
+      let imageUrls: string[] | undefined;
+      if (imageUris && imageUris.length > 0) {
+        imageUrls = await uploadChatImages(imageUris, id);
       }
-      await sendMessage(id, user.uid, user.name, text, imageUrl);
+      await sendMessage(id, user.uid, user.name, text, imageUrls, options);
       setTyping(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to send message";
@@ -79,6 +89,20 @@ export default function TenantRequestDetailScreen() {
       },
       { destructive: true },
     );
+  };
+
+  const handleVerify = async () => {
+    if (!id || !user || verifying) return;
+    setVerifying(true);
+    try {
+      await verifyByTenant(id, user.uid, user.name);
+      showSuccess("Verified — thanks!", "Your maintainer has been notified.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not verify";
+      showError("Error", msg);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleRate = async () => {
@@ -125,59 +149,110 @@ export default function TenantRequestDetailScreen() {
         <StatusTimeline currentStatus={request.status} />
 
         {/* Title + Edit */}
-        <View className="flex-row items-start justify-between mt-4">
-          <Text className="text-xl font-bold flex-1 mr-2" style={{ color: c.text }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginTop: 18 }}>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: FONT.display,
+              fontSize: 24,
+              fontWeight: "900",
+              color: c.text,
+              marginRight: 12,
+              letterSpacing: -0.4,
+              lineHeight: 28,
+            }}
+          >
             {request.title}
           </Text>
           {request.status === "submitted" && (
             <TouchableOpacity
-              className="flex-row items-center px-3 py-1.5 rounded-lg border"
-              style={{ borderColor: c.border }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                backgroundColor: palette.mustard500,
+                borderWidth: BORDER.base,
+                borderColor: palette.ink,
+                ...SHADOW_SM,
+              }}
               onPress={() => router.push(`/(tenant)/edit/${id}`)}
               accessibilityRole="button"
               accessibilityLabel="Edit request"
               testID="tenant-edit-button"
             >
-              <Ionicons name="pencil-outline" size={14} color={c.primary} />
-              <Text className="text-xs ml-1 font-medium" style={{ color: c.primary }}>Edit</Text>
+              <Ionicons name="pencil" size={14} color={palette.ink} />
+              <Text style={{ marginLeft: 6, fontFamily: FONT.display, fontSize: 11, fontWeight: "900", color: palette.ink, letterSpacing: 0.6 }}>
+                EDIT
+              </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <View className="flex-row items-center mt-2">
-          <View className="px-3 py-1 rounded-md mr-2" style={{ backgroundColor: c.surfaceAlt }}>
-            <Text className="text-xs" style={{ color: c.textSecondary }}>{request.category}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10, gap: 8 }}>
+          <View
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              backgroundColor: palette.ink,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+            }}
+          >
+            <Text style={{ fontFamily: FONT.display, fontSize: 10, fontWeight: "900", color: palette.paper, letterSpacing: 0.6 }}>
+              {request.category.toUpperCase()}
+            </Text>
           </View>
           {request.priority && <PriorityBadge priority={request.priority} />}
         </View>
 
-        <Text className="text-base mt-4 leading-6" style={{ color: c.textBody }}>
+        <Text style={{ fontFamily: FONT.body, fontSize: 14, marginTop: 16, lineHeight: 22, color: c.textBody }}>
           {request.description}
         </Text>
-        {request.imageUrl ? (
-          <Image
-            source={{ uri: request.imageUrl }}
-            className="w-full rounded-xl mt-4"
-            style={{ height: 160 }}
-            resizeMode="cover"
-          />
-        ) : null}
+        {(() => {
+          const imgs = getRequestImages(request);
+          return imgs.length > 0 ? (
+            <View style={{ marginTop: 16 }}>
+              <ImageGallery uris={imgs} layout="horizontal" thumbSize={120} testIDPrefix="tenant-request-image" />
+            </View>
+          ) : null;
+        })()}
 
         {/* Assignee Info */}
         {request.assignedToName && (
-          <View className="mt-4 p-3 rounded-lg" style={{ backgroundColor: c.primaryBg }}>
-            <Text className="text-xs font-medium" style={{ color: c.primary }}>Your Technician</Text>
-            <Text className="text-sm font-semibold mt-0.5" style={{ color: c.text }}>
+          <View
+            style={{
+              marginTop: 18,
+              padding: 14,
+              backgroundColor: palette.cobalt500,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              ...SHADOW_MD,
+            }}
+          >
+            <Text style={{ fontFamily: FONT.display, fontSize: 10, fontWeight: "900", color: palette.paper, letterSpacing: 1, textTransform: "uppercase" }}>
+              ◼ Your technician
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONT.display,
+                fontSize: 18,
+                fontWeight: "900",
+                marginTop: 4,
+                color: palette.paper,
+                letterSpacing: -0.2,
+              }}
+            >
               {request.assignedToName}
             </Text>
             {request.assignedToPhone ? (
-              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
+              <Text style={{ fontFamily: FONT.mono, fontSize: 12, marginTop: 4, color: palette.paper, letterSpacing: 0.4 }}>
                 {request.assignedToPhone}
               </Text>
             ) : null}
             {request.estimatedArrival ? (
-              <Text className="text-xs mt-0.5" style={{ color: c.textTertiary }}>
-                ETA: {request.estimatedArrival}
+              <Text style={{ fontFamily: FONT.mono, fontSize: 12, marginTop: 2, color: palette.paper, letterSpacing: 0.4 }}>
+                ETA · {request.estimatedArrival}
               </Text>
             ) : null}
           </View>
@@ -186,8 +261,16 @@ export default function TenantRequestDetailScreen() {
         {/* Cancel button */}
         {canCancel(request.status) && (
           <TouchableOpacity
-            className="rounded-xl py-3 items-center mt-4 border"
-            style={{ borderColor: c.errorBorder, backgroundColor: cancelling ? c.errorBg : c.background }}
+            style={{
+              marginTop: 18,
+              paddingVertical: 14,
+              alignItems: "center",
+              backgroundColor: palette.tomato500,
+              borderWidth: BORDER.heavy,
+              borderColor: palette.ink,
+              ...SHADOW_MD,
+              opacity: cancelling ? 0.7 : 1,
+            }}
             onPress={handleCancel}
             disabled={cancelling}
             accessibilityRole="button"
@@ -196,10 +279,10 @@ export default function TenantRequestDetailScreen() {
             testID="cancel-request-button"
           >
             {cancelling ? (
-              <ActivityIndicator color={c.error} />
+              <ActivityIndicator color={palette.paper} />
             ) : (
-              <Text className="text-sm font-semibold" style={{ color: c.error }}>
-                Cancel Request
+              <Text style={{ fontFamily: FONT.display, fontSize: 13, fontWeight: "900", color: palette.paper, letterSpacing: 1, textTransform: "uppercase" }}>
+                Cancel request
               </Text>
             )}
           </TouchableOpacity>
@@ -208,32 +291,132 @@ export default function TenantRequestDetailScreen() {
         {/* Status History */}
         <StatusHistory history={request.statusHistory} />
 
-        {/* Rating - show when completed */}
+        {/* Verify button — completed but not yet verified */}
         {request.status === "completed" && (
-          <View className="mt-4 p-4 rounded-xl" style={{ backgroundColor: c.surface }}>
+          <View
+            style={{
+              marginTop: 18,
+              padding: 14,
+              backgroundColor: palette.mustard50,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              ...SHADOW_SM,
+            }}
+            testID="awaiting-confirmation-banner"
+          >
+            <Text style={{ fontFamily: FONT.display, fontSize: 11, fontWeight: "900", color: palette.ink, letterSpacing: 0.6, textTransform: "uppercase" }}>
+              ◼ Awaiting your confirmation
+            </Text>
+            <Text style={{ marginTop: 6, fontFamily: FONT.body, fontSize: 13, color: palette.ink, lineHeight: 18 }}>
+              Tap below if the work was done correctly. This closes the request.
+            </Text>
+            <TouchableOpacity
+              style={{
+                marginTop: 12,
+                paddingVertical: 16,
+                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "center",
+                backgroundColor: verifying ? palette.lime300 : palette.lime500,
+                borderWidth: BORDER.heavy,
+                borderColor: palette.ink,
+                ...SHADOW_MD,
+              }}
+              onPress={handleVerify}
+              disabled={verifying}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm work was done correctly"
+              testID="tenant-verify-button"
+            >
+              {verifying ? (
+                <ActivityIndicator color={palette.ink} />
+              ) : (
+                <>
+                  <Ionicons name="shield-checkmark" size={18} color={palette.ink} />
+                  <Text
+                    style={{
+                      marginLeft: 8,
+                      color: palette.ink,
+                      fontFamily: FONT.display,
+                      fontSize: 14,
+                      fontWeight: "900",
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Confirm work was done correctly
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Verified banner */}
+        {request.status === "verified" && (
+          <View
+            style={{
+              marginTop: 18,
+              padding: 14,
+              backgroundColor: palette.lime500,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              flexDirection: "row",
+              alignItems: "center",
+              ...SHADOW_SM,
+            }}
+            testID="verified-banner"
+          >
+            <Ionicons name="shield-checkmark" size={18} color={palette.ink} />
+            <Text style={{ marginLeft: 10, fontFamily: FONT.display, fontSize: 13, fontWeight: "900", color: palette.ink, letterSpacing: 0.4, textTransform: "uppercase" }}>
+              Verified — request closed
+            </Text>
+          </View>
+        )}
+
+        {/* Rating - show when completed or verified */}
+        {(request.status === "completed" || request.status === "verified") && (
+          <View
+            style={{
+              marginTop: 18,
+              padding: 16,
+              backgroundColor: c.surface,
+              borderWidth: BORDER.heavy,
+              borderColor: palette.ink,
+              ...SHADOW_MD,
+            }}
+          >
             {request.rating ? (
               <View>
-                <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
-                  Your Rating
+                <Text style={{ fontFamily: FONT.display, fontSize: 12, fontWeight: "900", color: c.text, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>
+                  ◼ Your rating
                 </Text>
                 <RatingStars rating={request.rating} readonly />
                 {request.ratingComment ? (
-                  <Text className="text-sm mt-2" style={{ color: c.textTertiary }}>
-                    {request.ratingComment}
+                  <Text style={{ fontFamily: FONT.body, fontSize: 13, marginTop: 10, color: c.textBody, lineHeight: 18 }}>
+                    "{request.ratingComment}"
                   </Text>
                 ) : null}
               </View>
             ) : (
               <View>
-                <Text className="text-sm font-medium mb-2" style={{ color: c.textSecondary }}>
-                  Rate this service
+                <Text style={{ fontFamily: FONT.display, fontSize: 12, fontWeight: "900", color: c.text, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>
+                  ◼ Rate this service
                 </Text>
                 <RatingStars rating={pendingRating} onRate={setPendingRating} />
                 {pendingRating > 0 && (
-                  <View className="mt-3">
+                  <View style={{ marginTop: 14 }}>
                     <TextInput
-                      className="border rounded-xl px-3 py-2 text-sm"
-                      style={{ borderColor: c.border, color: c.text }}
+                      style={{
+                        borderWidth: BORDER.base,
+                        borderColor: palette.ink,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        fontFamily: FONT.body,
+                        fontSize: 14,
+                        color: c.text,
+                        backgroundColor: c.background,
+                      }}
                       placeholder="Add a comment (optional)"
                       placeholderTextColor={c.textMuted}
                       value={ratingComment}
@@ -243,8 +426,15 @@ export default function TenantRequestDetailScreen() {
                       testID="rating-comment-input"
                     />
                     <TouchableOpacity
-                      className="rounded-xl py-2.5 items-center mt-2"
-                      style={{ backgroundColor: submittingRating ? c.primaryLight : c.primary }}
+                      style={{
+                        marginTop: 10,
+                        paddingVertical: 14,
+                        alignItems: "center",
+                        backgroundColor: submittingRating ? palette.cobalt300 : palette.cobalt500,
+                        borderWidth: BORDER.base,
+                        borderColor: palette.ink,
+                        ...SHADOW_SM,
+                      }}
                       onPress={handleRate}
                       disabled={submittingRating}
                       accessibilityRole="button"
@@ -253,9 +443,11 @@ export default function TenantRequestDetailScreen() {
                       testID="submit-rating-button"
                     >
                       {submittingRating ? (
-                        <ActivityIndicator color={c.background} size="small" />
+                        <ActivityIndicator color={palette.paper} size="small" />
                       ) : (
-                        <Text className="text-sm font-semibold" style={{ color: c.background }}>Submit Rating</Text>
+                        <Text style={{ fontFamily: FONT.display, fontSize: 13, fontWeight: "900", color: palette.paper, letterSpacing: 0.8, textTransform: "uppercase" }}>
+                          Submit rating
+                        </Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -270,6 +462,7 @@ export default function TenantRequestDetailScreen() {
       <ChatFAB
         messages={messages}
         currentUserId={user?.uid ?? ""}
+        currentUserRole={user?.role}
         loading={messagesLoading}
         error={messagesError}
         onSend={handleSend}

@@ -16,20 +16,47 @@ import {
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { AppNotification, NotificationKind, NotificationDeepLink } from "@/types";
+import { withoutUndefined } from "@/utils/firestorePayload";
 
 let Notifications: typeof import("expo-notifications") | null = null;
+const noopNotificationSub = { remove: () => {} } as import("expo-notifications").EventSubscription;
 
-function getNotifications() {
-  if (!Notifications) {
+function getAppOwnership(): string | undefined {
+  if (Platform.OS !== "android") return undefined;
+  try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    Notifications = require("expo-notifications") as typeof import("expo-notifications");
+    const constantsModule = require("expo-constants") as { default?: { appOwnership?: string }; appOwnership?: string };
+    return constantsModule.default?.appOwnership ?? constantsModule.appOwnership;
+  } catch {
+    return undefined;
+  }
+}
+
+function notificationsUnavailableInExpoGo() {
+  return Platform.OS === "android" && getAppOwnership() === "expo";
+}
+
+function getNotifications(): typeof import("expo-notifications") | null {
+  if (Platform.OS === "web" || notificationsUnavailableInExpoGo()) {
+    return null;
+  }
+  if (!Notifications) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      Notifications = require("expo-notifications") as typeof import("expo-notifications");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[notifications] disabled on this runtime:", message);
+      return null;
+    }
   }
   return Notifications;
 }
 
 if (typeof window !== "undefined") {
   try {
-    getNotifications().setNotificationHandler({
+    const N = getNotifications();
+    N?.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
@@ -49,6 +76,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
   if (Platform.OS === "web") return null;
 
   const N = getNotifications();
+  if (!N) return null;
   const { status: existingStatus } = await N.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== "granted") {
@@ -121,6 +149,7 @@ export async function sendLocalNotification(
   try {
     if (Platform.OS === "web") return;
     const N = getNotifications();
+    if (!N) return;
     await N.scheduleNotificationAsync({
       content: {
         title,
@@ -172,13 +201,13 @@ export function notificationRouting(kind: NotificationKind): {
 export function addNotificationReceivedListener(
   handler: (notification: import("expo-notifications").Notification) => void,
 ): import("expo-notifications").EventSubscription {
-  return getNotifications().addNotificationReceivedListener(handler);
+  return getNotifications()?.addNotificationReceivedListener(handler) ?? noopNotificationSub;
 }
 
 export function addNotificationResponseListener(
   handler: (response: import("expo-notifications").NotificationResponse) => void,
 ): import("expo-notifications").EventSubscription {
-  return getNotifications().addNotificationResponseReceivedListener(handler);
+  return getNotifications()?.addNotificationResponseReceivedListener(handler) ?? noopNotificationSub;
 }
 
 // ─── In-app notification center ───
@@ -209,14 +238,13 @@ export async function createNotification(
   input: CreateNotificationInput,
 ): Promise<void> {
   const routing = notificationRouting(input.kind);
-  const deepLink: NotificationDeepLink = {
-    ticketId: input.requestId,
-    messageId: input.messageId,
-    threadId: input.requestId, // group by request for OS-level stacking
+  const deepLink: NotificationDeepLink = withoutUndefined({
+    ...(input.requestId ? { ticketId: input.requestId, threadId: input.requestId } : {}),
+    ...(input.messageId ? { messageId: input.messageId } : {}),
     category: routing.category,
     ...input.deepLink,
-  };
-  await addDoc(collection(db, "users", recipientUid, "notifications"), {
+  });
+  await addDoc(collection(db, "users", recipientUid, "notifications"), withoutUndefined({
     kind: input.kind,
     title: input.title,
     body: input.body,
@@ -226,7 +254,7 @@ export async function createNotification(
     ...(input.actorId ? { actorId: input.actorId } : {}),
     ...(input.actorName ? { actorName: input.actorName } : {}),
     deepLink,
-  });
+  }));
 }
 
 /** Subscribe to a user's recent notifications (max 50, newest first). */

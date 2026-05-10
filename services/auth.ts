@@ -11,6 +11,8 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/config/firebase";
 import { User } from "@/types";
+import { friendlyErrorMessage } from "@/utils/errorMessages";
+import { withoutUndefined } from "@/utils/firestorePayload";
 
 export class TenantAccountInactiveError extends Error {
   status: "pending_approval" | "suspended" | "rejected";
@@ -33,15 +35,21 @@ export class TenantAccountInactiveError extends Error {
 
 /** Sign in with email and password. Throws TenantAccountInactiveError if account is not active. */
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
-  const credential = await signInWithEmailAndPassword(auth, email, password);
-  // Lookup profile to enforce status gate
-  const profile = await getUserProfile(credential.user.uid);
-  if (profile && profile.status && profile.status !== "active") {
-    // Sign out so the AuthContext does not consider this user logged in
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    // Lookup profile to enforce status gate
+    const profile = await getUserProfile(credential.user.uid);
+    if (profile && profile.status && profile.status !== "active") {
+      // Sign out so the AuthContext does not consider this user logged in
+      await firebaseSignOut(auth).catch(() => {});
+      throw new TenantAccountInactiveError(profile.status, profile.rejectionReason);
+    }
+    return credential.user;
+  } catch (error) {
+    if (error instanceof TenantAccountInactiveError) throw error;
     await firebaseSignOut(auth).catch(() => {});
-    throw new TenantAccountInactiveError(profile.status, profile.rejectionReason);
+    throw new Error(friendlyErrorMessage(error, "Unable to sign in. Try again."));
   }
-  return credential.user;
 }
 
 /**
@@ -56,24 +64,29 @@ export async function signUp(
   unitNumber?: string,
   phone?: string,
 ): Promise<User> {
-  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  let credential: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>;
+  try {
+    credential = await createUserWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    throw new Error(friendlyErrorMessage(error, "Registration failed. Try again."));
+  }
   const user: User = {
     uid: credential.user.uid,
     email,
     name,
     role,
     status: "pending_approval",
-    unitNumber: unitNumber || undefined,
-    phone: phone || undefined,
+    ...(unitNumber ? { unitNumber } : {}),
+    ...(phone ? { phone } : {}),
   };
   try {
-    await setDoc(doc(db, "users", credential.user.uid), {
+    await setDoc(doc(db, "users", credential.user.uid), withoutUndefined({
       ...user,
       createdAt: serverTimestamp(),
-    });
+    }));
   } catch (error) {
     await deleteUser(credential.user).catch(() => {});
-    throw error;
+    throw new Error(friendlyErrorMessage(error, "Account was created, but profile setup failed. Try again."));
   }
   return user;
 }
@@ -95,7 +108,7 @@ export async function updateUserProfile(
   uid: string,
   fields: Partial<Pick<User, "name" | "unitNumber" | "phone" | "hourlyRate" | "specialties">>,
 ): Promise<void> {
-  await setDoc(doc(db, "users", uid), fields, { merge: true });
+  await setDoc(doc(db, "users", uid), withoutUndefined(fields), { merge: true });
 }
 
 /** Subscribe to Firebase auth state changes. Returns unsubscribe function. */
@@ -117,7 +130,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
     if (code === "auth/user-not-found" || code === "auth/invalid-email") {
       return;
     }
-    throw error;
+    throw new Error(friendlyErrorMessage(error, "Could not send reset email. Try again."));
   }
 }
 
@@ -133,6 +146,10 @@ export async function sendCurrentUserEmailVerification(): Promise<boolean> {
   if (current.emailVerified) {
     return false;
   }
-  await sendEmailVerification(current);
+  try {
+    await sendEmailVerification(current);
+  } catch (error) {
+    throw new Error(friendlyErrorMessage(error, "Could not send verification email. Try again."));
+  }
   return true;
 }

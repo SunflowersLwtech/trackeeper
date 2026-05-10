@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Animated, Easing, StyleSheet } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER } from "@/constants/Brutalism";
 
 export interface DonutSlice {
   label: string;
@@ -133,37 +135,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   centerValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: -0.5,
+    fontFamily: FONT.display,
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: -1,
   },
   centerLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    marginTop: 2,
+    fontFamily: FONT.display,
+    fontSize: 10,
+    fontWeight: "900",
+    marginTop: 4,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   legend: {
-    marginTop: 12,
+    marginTop: 14,
     width: "100%",
   },
   legendRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-    marginRight: 8,
+    width: 14,
+    height: 14,
+    borderWidth: BORDER.base,
+    borderColor: palette.ink,
+    marginRight: 10,
   },
   legendLabel: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "500",
+    fontFamily: FONT.display,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   legendValue: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontFamily: FONT.mono,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 });

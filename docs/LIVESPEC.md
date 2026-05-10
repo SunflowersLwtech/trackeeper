@@ -76,7 +76,7 @@ The system runs on iOS, Android, and web from a single TypeScript codebase.
 | Role | Capabilities |
 |------|-------------|
 | **Tenant** | Register (pending manager approval), create requests once `active`, view own requests, chat with assigned maintainer (with read-receipts and image attachments), receive in-app notifications on assignment / completion, rate completed work, cancel early-stage requests |
-| **Manager** | Approve, reject, suspend, or reactivate tenants; view all requests; assign to maintainers; override AI-suggested priority; manage statuses (hold/resume); write private notes; record cost breakdown and pay maintainers; view analytics dashboard; receive in-app notifications on every new request |
+| **Manager** | Approve, reject, suspend, or reactivate tenants; view all requests; assign to maintainers; override system-triaged priority; manage statuses (hold/resume); write private notes; record cost breakdown and pay maintainers; view analytics dashboard; receive in-app notifications on every new request |
 | **Maintainer** | View assigned tasks, accept and progress work, put on hold, mark complete, chat with tenant, view earnings dashboard (paid vs. pending), receive in-app notifications on new assignments and payments |
 
 ---
@@ -104,7 +104,7 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 
 1. **Authentication**: Email/password with tenant-only public registration. Tenants land in `pending_approval` and cannot create requests until a manager flips them to `active`.
 2. **Tenant approval workflow**: Manager-side approvals queue with badge, approve / reject (with reason) / suspend / reactivate actions; status changes fan out as in-app notifications.
-3. **AI priority suggestion**: `utils/priority.ts` keyword heuristic auto-tags new requests as high / medium / low based on title + description + category. Tenants no longer pick priority. Manager sees the suggestion + reason and can override at any time.
+3. **System priority triage**: `utils/priority.ts` combines tenant risk-checklist answers, title/description keyword hints, and category defaults to tag new requests as high / medium / low. Tenants no longer pick priority. Manager sees the deterministic reason and can override at any time.
 4. **In-app notification center**: `users/{uid}/notifications` subcollection, `NotificationBell` in every header with unread badge and dropdown feed; events: request created, assigned, started, completed, on-hold/resumed, paid, approved, rejected, suspended, reactivated.
 5. **Mock payment flow**: Manager records cost (labour hours × hourly rate + materials) on completed jobs, then pays via a Stripe-style `PaymentDialog` (bank transfer / cash / card mock). Each payment generates a local `TKP-xxx` reference number.
 6. **Maintainer earnings dashboard**: Paid vs. pending totals (gradient hero card) and per-job history.
@@ -195,7 +195,7 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 | 14 | 2026-04-03 | **A+ (95)** | 100% JSDoc on all services, retry buttons on all error screens |
 | 15 | 2026-04-03 | A+ (95) | Firebase migration to tracekeeper-51b4d, tenant cancel rule fix, auth layout fix |
 | 16 | 2026-04-04 | A+ (95) | testID full coverage (22 elements), dead code cleanup, Maestro iOS 26.2 compat, three-platform E2E (9 data chains), 30 boundary tests, academic documentation |
-| 17 | 2026-04-27 | A+ (98) | Tenant approval workflow, in-app notification center with unread badges, AI priority suggestion (manager-overridable), payment simulation with cost breakdown, maintainer earnings dashboard, manager analytics dashboard, chat read-receipts and image attachments, demo seed dataset (12 cases), polished login + pending-approval screens |
+| 17 | 2026-04-27 | A+ (98) | Tenant approval workflow, in-app notification center with unread badges, system priority triage (manager-overridable), payment simulation with cost breakdown, maintainer earnings dashboard, manager analytics dashboard, chat read-receipts and image attachments, demo seed dataset (12 cases), polished login + pending-approval screens |
 
 ---
 
@@ -231,7 +231,7 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 - [x] Boundary and edge-case test suite (30 cases)
 - [x] Tenant registration approval queue (`pending_approval` → manager approve/reject)
 - [x] In-app notification center (`users/{uid}/notifications` subcollection, bell with unread badge)
-- [x] AI-suggested request priority (keyword heuristic — manager has final say via override)
+- [x] System-triaged request priority (risk checklist + keyword heuristic - manager has final say via override)
 - [x] Mock payment flow (cost breakdown editor + Stripe-style payment dialog)
 - [x] Maintainer earnings dashboard (paid vs. pending, job history)
 - [x] Manager analytics dashboard (KPI cards, donut, bar charts, heatmap, leaderboard, revenue)
@@ -251,6 +251,6 @@ submitted ───→ assigned ───→ in_progress ───→ completed
 | Notification fan-out is client-side | Sender must be online to deliver in-app notifications to peers | Cloud Functions onWrite trigger |
 | Push notifications are in-app only | OS-level push not delivered when the app is closed | Firebase Cloud Messaging + Expo push tokens |
 | Payment is simulated | No real payment gateway — `TKP-xxx` reference numbers are locally generated | Stripe / iPay88 integration (out of scope for FYP) |
-| AI priority is keyword-only | No ML model — heuristic word list with category fallback | Replace with a small classifier or LLM if external deps allowed |
+| Priority triage is deterministic | No ML model - risk checklist, keyword list, and category fallback | Keep deterministic for auditability, or replace with a small classifier/LLM only if external dependencies are allowed |
 | No server-side pagination | Large datasets load in full on first query | Cursor-based pagination with `startAfter` |
 | Expo Go limitations for production | Cannot use custom native modules | `expo prebuild` for production builds |

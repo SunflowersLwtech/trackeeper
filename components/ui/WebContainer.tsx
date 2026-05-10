@@ -2,6 +2,7 @@ import React from "react";
 import { View, Platform } from "react-native";
 import { palette } from "@/constants/Colors";
 import { BORDER } from "@/constants/Brutalism";
+import { useColors } from "@/hooks/useColors";
 
 interface WebContainerProps {
   children: React.ReactNode;
@@ -27,13 +28,14 @@ const WebContainerNestedContext = React.createContext(false);
  */
 export function WebContainer({ children, maxWidth = 480 }: WebContainerProps) {
   const alreadyWrapped = React.useContext(WebContainerNestedContext);
+  const c = useColors();
   if (Platform.OS !== "web" || alreadyWrapped) {
     return <>{children}</>;
   }
 
   return (
     <WebContainerNestedContext.Provider value={true}>
-      <View style={{ flex: 1, alignItems: "center", backgroundColor: palette.cream100 }}>
+      <View style={{ flex: 1, alignItems: "center", backgroundColor: c.background }}>
         <View
           style={{
             flex: 1,
@@ -42,7 +44,7 @@ export function WebContainer({ children, maxWidth = 480 }: WebContainerProps) {
             borderLeftWidth: BORDER.base,
             borderRightWidth: BORDER.base,
             borderColor: palette.ink,
-            backgroundColor: palette.cream100,
+            backgroundColor: c.surface,
           }}
         >
           {children}

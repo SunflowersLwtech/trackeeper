@@ -5,6 +5,7 @@ import {
   getPriorityColor,
   getPriorityLabel,
   getPriorityWeight,
+  suggestPriority,
 } from "@/utils/priority";
 
 describe("priority utils", () => {
@@ -62,6 +63,39 @@ describe("priority utils", () => {
     it("returns lower weight for higher priority (for sorting)", () => {
       expect(getPriorityWeight("high")).toBeLessThan(getPriorityWeight("medium"));
       expect(getPriorityWeight("medium")).toBeLessThan(getPriorityWeight("low"));
+    });
+  });
+
+  describe("suggestPriority", () => {
+    it("uses explicit safety triage before keywords or category defaults", () => {
+      expect(
+        suggestPriority("Loose handle", "A door handle is loose", "General", ["safety_hazard"]),
+      ).toMatchObject({
+        priority: "high",
+        source: "system_triage",
+        confidence: "high",
+        factors: ["safety_hazard"],
+      });
+    });
+
+    it("uses worsening as a medium-priority operational signal", () => {
+      expect(
+        suggestPriority("Wall mark", "Small mark on the hallway wall", "General", ["worsening"]),
+      ).toMatchObject({
+        priority: "medium",
+        source: "system_triage",
+        confidence: "high",
+      });
+    });
+
+    it("still detects emergency keywords when no explicit risk is selected", () => {
+      expect(
+        suggestPriority("Emergency", "Power outage on second floor", "Electrical"),
+      ).toMatchObject({
+        priority: "high",
+        source: "system_triage",
+        confidence: "medium",
+      });
     });
   });
 });

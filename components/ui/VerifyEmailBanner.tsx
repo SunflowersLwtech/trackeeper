@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { auth } from "@/config/firebase";
 import { sendCurrentUserEmailVerification } from "@/services/auth";
 import { showSuccess, showError, showInfo } from "@/utils/toast";
+import { friendlyErrorMessage } from "@/utils/errorMessages";
 import { palette } from "@/constants/Colors";
 import { FONT, BORDER, SHADOW_SM } from "@/constants/Brutalism";
 
@@ -45,7 +46,7 @@ export function VerifyEmailBanner() {
       }
       showSuccess("Sent", "Check your inbox");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not send";
+      const msg = friendlyErrorMessage(e, "Could not send verification email. Try again.");
       showError("Couldn't send", msg);
     } finally {
       setResending(false);

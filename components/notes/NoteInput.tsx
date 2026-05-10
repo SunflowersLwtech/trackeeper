@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM } from "@/constants/Brutalism";
 
 interface NoteInputProps {
   onSubmit: (text: string) => Promise<void>;
@@ -23,11 +25,25 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
     }
   };
 
+  const ready = !!text.trim() && !submitting;
+
   return (
-    <View className="flex-row items-end px-3 py-2">
+    <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 10, gap: 8 }}>
       <TextInput
-        className="flex-1 border rounded-xl px-3 py-2 mr-2 text-sm"
-        style={{ borderColor: c.border, color: c.text, maxHeight: 80 }}
+        style={{
+          flex: 1,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
+          borderRadius: RADIUS.xs,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          fontFamily: FONT.body,
+          fontSize: 14,
+          color: c.text,
+          backgroundColor: c.surface,
+          maxHeight: 90,
+          ...SHADOW_SM,
+        }}
         placeholder="Add internal note..."
         placeholderTextColor={c.textMuted}
         value={text}
@@ -39,19 +55,34 @@ export function NoteInput({ onSubmit }: NoteInputProps) {
         testID="note-input"
       />
       <TouchableOpacity
-        className="px-4 py-2.5 rounded-xl"
-        style={{ backgroundColor: text.trim() && !submitting ? c.warning : c.borderLight }}
+        style={{
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderWidth: BORDER.base,
+          borderColor: palette.ink,
+          backgroundColor: ready ? palette.mustard500 : c.surfaceAlt,
+          ...(ready ? SHADOW_SM : {}),
+        }}
         onPress={handleSubmit}
-        disabled={!text.trim() || submitting}
+        disabled={!ready}
         accessibilityRole="button"
         accessibilityLabel="Submit note"
-        accessibilityState={{ disabled: !text.trim() || submitting, busy: submitting }}
+        accessibilityState={{ disabled: !ready, busy: submitting }}
         testID="submit-note-button"
       >
         {submitting ? (
-          <ActivityIndicator color={c.background} size="small" />
+          <ActivityIndicator color={palette.ink} size="small" />
         ) : (
-          <Text className="text-xs font-semibold" style={{ color: text.trim() ? c.background : c.textMuted }}>
+          <Text
+            style={{
+              fontFamily: FONT.display,
+              fontSize: 12,
+              fontWeight: "900",
+              letterSpacing: 0.6,
+              color: palette.ink,
+              textTransform: "uppercase",
+            }}
+          >
             Note
           </Text>
         )}

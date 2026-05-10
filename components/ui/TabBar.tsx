@@ -1,6 +1,8 @@
 import React from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER } from "@/constants/Brutalism";
 
 export interface TabItem<T extends string = string> {
   label: string;
@@ -19,16 +21,29 @@ export function TabBar<T extends string>({ tabs, active, onSelect }: TabBarProps
   const c = useColors();
 
   return (
-    <View style={[styles.container, { backgroundColor: c.surface }]}>
-      {tabs.map((tab) => {
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: c.surface,
+          borderBottomWidth: BORDER.base,
+          borderBottomColor: palette.ink,
+        },
+      ]}
+    >
+      {tabs.map((tab, idx) => {
         const isActive = active === tab.value;
-        const color = tab.activeColor ?? c.primary;
+        const color = tab.activeColor ?? palette.cobalt500;
         return (
           <TouchableOpacity
             key={tab.value}
             style={[
               styles.tab,
-              { borderBottomColor: isActive ? color : "transparent" },
+              {
+                backgroundColor: isActive ? color : "transparent",
+                borderRightWidth: idx < tabs.length - 1 ? BORDER.base : 0,
+                borderRightColor: palette.ink,
+              },
             ]}
             onPress={() => onSelect(tab.value)}
             accessibilityRole="tab"
@@ -36,10 +51,13 @@ export function TabBar<T extends string>({ tabs, active, onSelect }: TabBarProps
             accessibilityState={{ selected: isActive }}
           >
             <Text
-              style={[styles.label, { color: isActive ? color : c.textTertiary }]}
+              style={[
+                styles.label,
+                { color: isActive ? palette.paper : c.text },
+              ]}
             >
               {tab.label}
-              {tab.badge != null ? ` (${tab.badge})` : ""}
+              {tab.badge != null ? `  ${tab.badge}` : ""}
             </Text>
           </TouchableOpacity>
         );
@@ -54,12 +72,15 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: "center",
-    borderBottomWidth: 2,
+    justifyContent: "center",
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontFamily: FONT.display,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 });

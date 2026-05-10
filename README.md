@@ -455,21 +455,56 @@ Manager and maintainer accounts are provisioned via the in-app staff management 
 
 ## 10. Running the App
 
-### 10.1 All Three Platforms
+### 10.1 One-command LAN launch
+
+Use these scripts for local demos and physical-device testing. They clear stale
+listeners on ports `8080-8099`, start Expo on port `8080`, and print both the
+Web URL and Expo Go URL.
+
+macOS / Linux:
+
+```bash
+npm run dev:mac
+```
+
+Windows:
+
+```bat
+npm run dev:windows
+```
+
+Default output format:
+
+```text
+Web:      http://<LAN-IP>:8080
+Expo Go:  exp://<LAN-IP>:8080
+```
+
+Optional overrides:
+
+```bash
+EXPO_PORT=8081 PORT_START=8080 PORT_END=8099 npm run dev:mac
+```
+
+```powershell
+$env:EXPO_PORT=8081; npm run dev:windows
+```
+
+### 10.2 All Three Platforms
 
 ```bash
 npx expo start
 # Press:  w → Web    i → iOS Simulator    a → Android Emulator
 ```
 
-### 10.2 Web
+### 10.3 Web
 
 ```bash
-npx expo start --web
-# Serves at http://localhost:8081
+npm run dev:lan
+# Serves at http://localhost:8080
 ```
 
-### 10.3 iOS Simulator
+### 10.4 iOS Simulator
 
 ```bash
 npx expo start --ios
@@ -477,13 +512,13 @@ npx expo start --ios
 
 Requires macOS with Xcode installed. Expo Go is automatically installed on the simulator.
 
-### 10.4 iOS Physical Device
+### 10.5 iOS Physical Device
 
 1. Install **Expo Go** from the App Store.
-2. Run `npx expo start` in the terminal.
+2. Run `npm run dev:mac` or `npm run dev:windows` in the terminal.
 3. Scan the QR code with the iPhone camera.
 
-### 10.5 Android Emulator
+### 10.6 Android Emulator
 
 ```bash
 # Install (macOS with Homebrew):
@@ -504,11 +539,11 @@ $ANDROID_HOME/emulator/emulator -avd TracKeeper_Test &
 npx expo start --android
 ```
 
-### 10.6 Android Physical Device
+### 10.7 Android Physical Device
 
 1. Install **Expo Go** from Google Play Store.
 2. Enable Developer Options and USB Debugging.
-3. Run `npx expo start`, then scan the QR code in Expo Go.
+3. Run `npm run dev:mac` or `npm run dev:windows`, then scan the QR code in Expo Go.
 
 ---
 

@@ -2,6 +2,8 @@ import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Note } from "@/types";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
+import { FONT, BORDER, RADIUS, SHADOW_SM } from "@/constants/Brutalism";
 import { formatDateTime } from "@/utils/time";
 
 interface NotesListProps {
@@ -15,24 +17,37 @@ export function NotesList({ notes, loading, error }: NotesListProps) {
 
   if (error) {
     return (
-      <View className="py-4 items-center">
-        <Text className="text-xs" style={{ color: c.error }}>Failed to load notes</Text>
+      <View style={{ paddingVertical: 16, alignItems: "center" }}>
+        <Text style={{ fontFamily: FONT.display, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, color: palette.tomato500 }}>
+          ◼ Failed to load notes
+        </Text>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View className="py-4 items-center">
-        <ActivityIndicator size="small" color={c.primary} />
+      <View style={{ paddingVertical: 16, alignItems: "center" }}>
+        <ActivityIndicator size="small" color={palette.ink} />
       </View>
     );
   }
 
   if (notes.length === 0) {
     return (
-      <View className="py-4 items-center">
-        <Text className="text-xs" style={{ color: c.textMuted }}>No internal notes yet</Text>
+      <View style={{ paddingVertical: 16, alignItems: "center" }}>
+        <Text
+          style={{
+            fontFamily: FONT.display,
+            fontSize: 11,
+            fontWeight: "900",
+            letterSpacing: 0.8,
+            color: c.textMuted,
+            textTransform: "uppercase",
+          }}
+        >
+          No internal notes yet
+        </Text>
       </View>
     );
   }
@@ -46,16 +61,51 @@ export function NotesList({ notes, loading, error }: NotesListProps) {
         return (
           <View
             key={note.id}
-            className="px-3 py-2.5 mb-2 rounded-lg border"
-            style={{ borderColor: c.borderLight, backgroundColor: c.warningBg }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginBottom: 10,
+              borderRadius: RADIUS.xs,
+              borderWidth: BORDER.base,
+              borderColor: palette.ink,
+              backgroundColor: palette.mustard50,
+              ...SHADOW_SM,
+            }}
           >
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-xs font-semibold" style={{ color: c.warningTextDark }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: FONT.display,
+                  fontSize: 11,
+                  fontWeight: "900",
+                  letterSpacing: 0.5,
+                  color: palette.ink,
+                  textTransform: "uppercase",
+                }}
+              >
                 {note.managerName}
               </Text>
-              <Text className="text-xs" style={{ color: c.textMuted }}>{time}</Text>
+                <Text
+                  style={{
+                    fontFamily: FONT.mono,
+                    fontSize: 10,
+                    color: c.textMuted,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                {time}
+              </Text>
             </View>
-            <Text className="text-sm" style={{ color: c.textSecondary }}>{note.text}</Text>
+            <Text style={{ fontFamily: FONT.body, fontSize: 13, color: palette.ink, lineHeight: 18 }}>
+              {note.text}
+            </Text>
           </View>
         );
       })}

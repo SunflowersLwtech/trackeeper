@@ -42,7 +42,7 @@ export function FilterToolbar({
       {/* Search + filter button row */}
       <View style={styles.row}>
         <View style={[styles.searchBox, { borderColor: c.border, backgroundColor: c.surface }]}>
-          <Ionicons name="search-outline" size={18} color={c.textMuted} />
+          <Ionicons name="search-outline" size={18} color={c.text} />
           <TextInput
             style={[styles.searchInput, { color: c.text }]}
             placeholder={searchPlaceholder}
@@ -54,8 +54,12 @@ export function FilterToolbar({
             testID="filter-search-input"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => onSearchChange("")} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color={c.textMuted} />
+            <TouchableOpacity
+              onPress={() => onSearchChange("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={18} color={c.text} />
             </TouchableOpacity>
           )}
         </View>
@@ -71,7 +75,7 @@ export function FilterToolbar({
           <Ionicons
             name="options-outline"
             size={18}
-            color={filterCount > 0 ? "#fff" : c.textBody}
+            color={filterCount > 0 ? "#fff" : c.text}
           />
           {filterCount > 0 && (
             <View style={[styles.filterBadge, { backgroundColor: "#fff" }]}>

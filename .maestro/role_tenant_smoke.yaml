@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+---
+- stopApp
+- clearState
+- openLink: ${EXPO_LINK}
+
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 60000
+
+- tapOn:
+    point: "88%,40%"
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "login-demo-tenant"
+- tapOn:
+    text: "SIGN IN"
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "My Requests"
+    timeout: 45000
+- assertVisible: "My Requests"
+
+- tapOn:
+    point: "83%,95%"
+- extendedWaitUntil:
+    visible: "TENANT"
+    timeout: 15000
+- assertVisible:
+    id: "profile-show-tutorial-button"

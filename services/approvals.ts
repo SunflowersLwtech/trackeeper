@@ -11,6 +11,7 @@ import {
 import { db } from "@/config/firebase";
 import { User } from "@/types";
 import { createNotification } from "@/services/notifications";
+import { withoutUndefined } from "@/utils/firestorePayload";
 
 const USERS_COLLECTION = "users";
 
@@ -40,23 +41,24 @@ export async function approveTenant(
   approverId: string,
   approverName: string,
 ): Promise<void> {
+  const actorName = approverName || "your property administrator";
   await setDoc(
     doc(db, USERS_COLLECTION, tenantUid),
-    {
+    withoutUndefined({
       status: "active",
       approvedAt: serverTimestamp(),
-      approvedBy: approverId,
-      approvedByName: approverName,
-    },
+      approvedBy: approverId || undefined,
+      approvedByName: approverName || undefined,
+    }),
     { merge: true },
   );
   await createNotification(tenantUid, {
     kind: "tenant_approved",
     title: "Account approved",
-    body: `Welcome to TracKeeper, your account has been approved by ${approverName}.`,
-    actorId: approverId,
-    actorName: approverName,
-  });
+    body: `Welcome to TracKeeper, your account has been approved by ${actorName}.`,
+    ...(approverId ? { actorId: approverId } : {}),
+    ...(approverName ? { actorName: approverName } : {}),
+  }).catch(() => {});
 }
 
 /** Reject a pending tenant with optional reason. */
@@ -68,13 +70,13 @@ export async function rejectTenant(
 ): Promise<void> {
   await setDoc(
     doc(db, USERS_COLLECTION, tenantUid),
-    {
+    withoutUndefined({
       status: "rejected",
       rejectedAt: serverTimestamp(),
-      approvedBy: approverId,
-      approvedByName: approverName,
+      approvedBy: approverId || undefined,
+      approvedByName: approverName || undefined,
       rejectionReason: reason ?? null,
-    },
+    }),
     { merge: true },
   );
   await createNotification(tenantUid, {
@@ -83,9 +85,9 @@ export async function rejectTenant(
     body: reason
       ? `Your registration was rejected: ${reason}`
       : "Your registration was rejected. Please contact your property administrator.",
-    actorId: approverId,
-    actorName: approverName,
-  });
+    ...(approverId ? { actorId: approverId } : {}),
+    ...(approverName ? { actorName: approverName } : {}),
+  }).catch(() => {});
 }
 
 /** Reverse a previous suspend/reject — reactivate a user. */
@@ -96,13 +98,13 @@ export async function reactivateUser(
 ): Promise<void> {
   await setDoc(
     doc(db, USERS_COLLECTION, uid),
-    {
+    withoutUndefined({
       status: "active",
       approvedAt: serverTimestamp(),
-      approvedBy: approverId,
-      approvedByName: approverName,
+      approvedBy: approverId || undefined,
+      approvedByName: approverName || undefined,
       rejectionReason: null,
-    },
+    }),
     { merge: true },
   );
 }
@@ -116,12 +118,12 @@ export async function suspendUser(
 ): Promise<void> {
   await setDoc(
     doc(db, USERS_COLLECTION, uid),
-    {
+    withoutUndefined({
       status: "suspended",
-      approvedBy: approverId,
-      approvedByName: approverName,
+      approvedBy: approverId || undefined,
+      approvedByName: approverName || undefined,
       rejectionReason: reason ?? null,
-    },
+    }),
     { merge: true },
   );
 }

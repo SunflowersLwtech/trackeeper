@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Animated, Easing } from "react-native";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 import { useColors } from "@/hooks/useColors";
+import { palette } from "@/constants/Colors";
 
 export interface BarDatum {
   label: string;
@@ -122,10 +123,11 @@ export function BarChart({
                   y={y}
                   width={barWidth}
                   height={Math.max(0, barHeight)}
-                  rx={4}
-                  ry={4}
+                  rx={0}
+                  ry={0}
                   fill={fill}
-                  opacity={0.9}
+                  stroke={palette.ink}
+                  strokeWidth={2}
                 />
                 {d.secondary != null && d.secondary > 0 ? (
                   <Rect
@@ -133,10 +135,11 @@ export function BarChart({
                     y={secondaryY}
                     width={barWidth * 0.64}
                     height={Math.max(0, secondaryHeight)}
-                    rx={3}
-                    ry={3}
-                    fill={c.success}
-                    opacity={0.95}
+                    rx={0}
+                    ry={0}
+                    fill={palette.lime500}
+                    stroke={palette.ink}
+                    strokeWidth={1.5}
                   />
                 ) : null}
                 {showValues ? (

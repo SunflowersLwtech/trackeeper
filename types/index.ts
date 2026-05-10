@@ -21,6 +21,15 @@ export type RequestCategory = "Plumbing" | "Electrical" | "General";
 
 export type RequestPriority = "low" | "medium" | "high";
 
+export type TriageFactor =
+  | "safety_hazard"
+  | "active_damage"
+  | "essential_service_down"
+  | "access_security"
+  | "worsening";
+
+export type PriorityConfidence = "high" | "medium" | "low";
+
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
 
 export type PaymentMethod = "bank_transfer" | "cash" | "card";
@@ -74,7 +83,9 @@ export interface StatusChange {
 export interface PrioritySuggestion {
   priority: RequestPriority;
   reason: string;
-  source: "auto" | "manager" | "tenant";
+  source: "system_triage" | "auto" | "manager" | "tenant";
+  factors?: TriageFactor[];
+  confidence?: PriorityConfidence;
 }
 
 export interface RequestCost {
@@ -100,7 +111,7 @@ export interface RequestPayment {
   refundedAt?: Timestamp;
   refundedBy?: string;
   refundedByName?: string;
-  refundReason?: string;
+  refundReason?: string | null;
 }
 
 export interface RequestSLA {
@@ -136,6 +147,8 @@ export interface MaintenanceRequest {
   category: RequestCategory;
   priority: RequestPriority;
   prioritySuggestion?: PrioritySuggestion;
+  priorityFactors?: TriageFactor[];
+  priorityConfidence?: PriorityConfidence;
   /** Canonical multi-image array. Use `getRequestImages(req)` to read. */
   imageUrls?: string[];
   /** @deprecated legacy single-image field — kept for back-compat with old docs. */

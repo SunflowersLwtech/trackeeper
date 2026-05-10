@@ -7,8 +7,11 @@ jest.mock("react-native", () => ({
 }));
 
 jest.mock("firebase/firestore", () => ({
+  addDoc: jest.fn(() => Promise.resolve({ id: "notif-1" })),
+  collection: jest.fn((...args) => ["collection", ...args]),
   doc: jest.fn(() => "mock-doc-ref"),
   setDoc: jest.fn(() => Promise.resolve()),
+  serverTimestamp: jest.fn(() => "mock-ts"),
   deleteField: jest.fn(() => "FIELD_DELETE_SENTINEL"),
 }));
 
@@ -38,15 +41,17 @@ const mockNotifications = require("expo-notifications") as {
   addNotificationResponseReceivedListener: jest.Mock;
 };
 
-import { setDoc } from "firebase/firestore";
+import { addDoc, setDoc } from "firebase/firestore";
 import {
   unregisterPushToken,
   sendLocalNotification,
+  createNotification,
   addNotificationReceivedListener,
   addNotificationResponseListener,
 } from "@/services/notifications";
 
 const mockSetDoc = setDoc as jest.Mock;
+const mockAddDoc = addDoc as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -173,6 +178,39 @@ describe("unregisterPushToken", () => {
       { pushToken: "FIELD_DELETE_SENTINEL" },
       { merge: true },
     );
+  });
+});
+
+describe("createNotification", () => {
+  it("omits undefined deep-link fields for approval notifications", async () => {
+    await createNotification("tenant-1", {
+      kind: "tenant_approved",
+      title: "Account approved",
+      body: "Welcome",
+      actorId: "manager-1",
+    });
+
+    const payload = mockAddDoc.mock.calls[0][1];
+    expect(payload.deepLink).toEqual({ category: "approval" });
+    expect(JSON.stringify(payload)).not.toContain("undefined");
+  });
+
+  it("includes request deep-link fields when a request id is present", async () => {
+    await createNotification("tenant-1", {
+      kind: "request_assigned",
+      title: "Assigned",
+      body: "On the way",
+      requestId: "req-1",
+    });
+
+    expect(mockAddDoc.mock.calls[0][1]).toEqual(expect.objectContaining({
+      requestId: "req-1",
+      deepLink: {
+        ticketId: "req-1",
+        threadId: "req-1",
+        category: "assign",
+      },
+    }));
   });
 });
 

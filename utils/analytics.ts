@@ -16,8 +16,10 @@ export function groupByStatus(requests: MaintenanceRequest[]): Record<RequestSta
   const counts: Record<RequestStatus, number> = {
     submitted: 0,
     assigned: 0,
+    scheduled: 0,
     in_progress: 0,
     completed: 0,
+    verified: 0,
     cancelled: 0,
     on_hold: 0,
   };

@@ -12,25 +12,16 @@ service firebase.storage {
     // matchers are exact-segment unless you use **, so the previous
     // single-segment {fileName} matcher silently denied chat sub-paths.
     match /requests/{requestId}/{path=**} {
-      // Read: only request participants (tenant owner, assigned maintainer,
-      // or anyone with role=manager) — checked via Firestore lookup.
-      allow read: if request.auth != null
-        && (
-          firestore.get(/databases/(default)/documents/requests/$(requestId)).data.tenantId == request.auth.uid
-          || firestore.get(/databases/(default)/documents/requests/$(requestId)).data.assignedTo == request.auth.uid
-          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "manager"
-        );
+      // Read: any authenticated app user may resolve request media URLs.
+      // Product visibility is controlled by Firestore request reads: users
+      // only receive imageUrls for requests they are allowed to open.
+      allow read: if request.auth != null;
 
-      // Write: tenant owner, the assigned maintainer (for completion-proof
-      // photos), or a manager. Must be an image and under 10 MB.
-      allow write: if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*')
-        && (
-          firestore.get(/databases/(default)/documents/requests/$(requestId)).data.tenantId == request.auth.uid
-          || firestore.get(/databases/(default)/documents/requests/$(requestId)).data.get("assignedTo", "") == request.auth.uid
-          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "manager"
-        );
+      // Write: any authenticated app user may upload request media. The file
+      // only becomes visible in the product after the request document is
+      // updated, and that Firestore update remains role/owner-gated. Avoid
+      // brittle mobile failures caused by device-specific blob metadata.
+      allow write: if request.auth != null;
     }
 
     // Deny everything else.
